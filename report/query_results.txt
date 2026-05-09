@@ -1,0 +1,61 @@
+
+--- Q1 match-all ---
+  numFound=600, QTime=0ms
+
+--- Q2 edismax full-text ---
+  numFound=92, QTime=2ms
+   * BK0217  Whispers of Quantum
+   * BK0534  Dreams of Quantum
+   * BK0110  Voices in Quantum
+
+--- Q3 fq genre + price range ---
+  numFound=14, QTime=1ms
+   * BK0102  The Ancient Mind
+   * BK0314  Shadows of River
+   * BK0330  Chronicles of Mountain
+
+--- Q4 facet by genre/publisher ---
+  numFound=600, QTime=1ms
+  facet genre: [('Self-Help', 51), ('Drama', 49), ('Mystery', 45), ('Fantasy', 43), ('Adventure', 42)]
+  facet publisher: [('Manning', 59), ("O'Reilly Media", 52), ('Wiley', 50), ('Springer', 47), ('Bloomsbury', 42)]
+
+--- Q5 sort by year desc ---
+  numFound=600, QTime=1ms
+   * BK0579  The Forgotten Network
+   * BK0312  Voices in Mind
+   * BK0162  The Lost Truth
+
+--- Q6 highlighting ---
+  numFound=50, QTime=2ms
+  hl BK0473: {'description': ['A landmark study of <mark>freedom</mark> drawing on decades of research and firsthand experience in <mark>freedom</mark>.']}
+
+--- Q7 range facet by decade ---
+  numFound=600, QTime=1ms
+
+--- Q8 phrase + boolean ---
+  numFound=1, QTime=0ms
+
+--- Q9 fuzzy author ---
+  numFound=17, QTime=1ms
+   * BK0036  Songs of Star
+   * BK0037  The Lost Journey
+   * BK0094  The Lost Algorithm
+
+--- Q10 boost by rating ---
+  numFound=43, QTime=5ms
+   * BK0070  The Forgotten Truth
+   * BK0545  The Hidden Forest
+   * BK0169  Beyond the Storm
+
+--- Q11 pagination start=20 ---
+  numFound=600, QTime=0ms
+
+--- Q12 group by genre ---
+  matches=600, QTime=2ms (grouped on genre)
+   group Philosophy: 40 docs
+   group Fiction: 40 docs
+   group Romance: 40 docs
+   group Mystery: 45 docs
+   group Drama: 49 docs
+
+All 12 queries executed.

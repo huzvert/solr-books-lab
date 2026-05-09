@@ -1,0 +1,93 @@
+:root {
+  --bg: #0f1419;
+  --panel: #1a2028;
+  --panel-2: #232b35;
+  --ink: #e8eef5;
+  --muted: #8a96a3;
+  --accent: #4f8cff;
+  --accent-2: #7bd389;
+  --border: #2a3440;
+  --hl: #ffd86b;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
+         system-ui, Roboto, sans-serif;
+  background: var(--bg); color: var(--ink); line-height: 1.5;
+}
+.topbar {
+  position: sticky; top: 0; z-index: 10;
+  display: flex; align-items: center; gap: 1.5rem; padding: .75rem 1.5rem;
+  background: var(--panel); border-bottom: 1px solid var(--border);
+}
+.brand { font-weight: 700; font-size: 1.15rem; letter-spacing: .02em; }
+.brand .logo { color: var(--accent); margin-right: .25rem; }
+.searchbar { display: flex; gap: .5rem; flex: 1; position: relative; }
+.searchbar input[type=text] {
+  flex: 1; padding: .65rem .9rem; background: var(--panel-2);
+  border: 1px solid var(--border); border-radius: 6px; color: var(--ink);
+  font-size: .95rem;
+}
+.searchbar select, .searchbar button {
+  padding: .65rem .9rem; background: var(--panel-2); color: var(--ink);
+  border: 1px solid var(--border); border-radius: 6px; cursor: pointer;
+}
+.searchbar button {
+  background: var(--accent); border-color: var(--accent); color: #fff;
+  font-weight: 600;
+}
+.suggest {
+  position: absolute; top: 110%; left: 0; right: 30%;
+  background: var(--panel-2); border: 1px solid var(--border);
+  border-radius: 6px; list-style: none; margin: 0; padding: 0;
+  max-height: 300px; overflow-y: auto;
+}
+.suggest:empty { display: none; }
+.suggest li { padding: .5rem .75rem; cursor: pointer; }
+.suggest li:hover { background: var(--panel); }
+.layout { display: grid; grid-template-columns: 260px 1fr; gap: 1.5rem;
+          padding: 1.5rem; max-width: 1200px; margin: 0 auto; }
+.sidebar { background: var(--panel); padding: 1rem; border-radius: 8px;
+           border: 1px solid var(--border); align-self: start; }
+.facet { margin-bottom: 1.25rem; }
+.facet h3 { margin: 0 0 .5rem; font-size: .85rem; text-transform: uppercase;
+            letter-spacing: .05em; color: var(--muted); }
+.facet-row {
+  display: flex; align-items: center; gap: .5rem; padding: .25rem 0;
+  font-size: .9rem; cursor: pointer;
+}
+.facet-row .count { margin-left: auto; color: var(--muted); font-size: .8rem; }
+.range { display: flex; gap: .5rem; }
+.range input { width: 50%; padding: .4rem; background: var(--panel-2);
+               border: 1px solid var(--border); color: var(--ink);
+               border-radius: 4px; }
+.apply { width: 100%; padding: .6rem; background: var(--accent);
+         color: #fff; border: 0; border-radius: 6px; cursor: pointer;
+         font-weight: 600; }
+.results { min-width: 0; }
+.meta { color: var(--muted); margin-bottom: 1rem; font-size: .9rem; }
+.card {
+  background: var(--panel); border: 1px solid var(--border);
+  padding: 1rem 1.25rem; border-radius: 8px; margin-bottom: 1rem;
+}
+.card h2 { margin: 0 0 .25rem; font-size: 1.15rem; }
+.byline { color: var(--muted); font-size: .85rem; margin-bottom: .5rem; }
+.desc { margin: .5rem 0; font-size: .92rem; }
+.footer { display: flex; gap: 1rem; flex-wrap: wrap; font-size: .85rem;
+          color: var(--muted); padding-top: .5rem; border-top: 1px solid var(--border); }
+.price { color: var(--accent-2); font-weight: 600; }
+.rating { color: var(--hl); }
+.stock.yes { color: var(--accent-2); }
+.stock.no { color: #ff7a7a; }
+mark { background: var(--hl); color: #1a1a1a; padding: 0 2px; border-radius: 2px; }
+.pager { display: flex; gap: 1rem; align-items: center; justify-content: center;
+         padding: 1rem; }
+.pager a { color: var(--accent); text-decoration: none; padding: .35rem .75rem;
+           border: 1px solid var(--border); border-radius: 4px; }
+.empty, .error { padding: 2rem; text-align: center; color: var(--muted); }
+.error { color: #ff7a7a; }
+@media (max-width: 800px) {
+  .layout { grid-template-columns: 1fr; }
+  .topbar { flex-direction: column; align-items: stretch; }
+  .suggest { right: 0; }
+}

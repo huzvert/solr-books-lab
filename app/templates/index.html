@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Solr Books Search</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand"><span class="logo">&#x2756;</span> Solr Books</div>
+  <form class="searchbar" action="/" method="get" autocomplete="off">
+    <input type="text" id="q" name="q" value="{{ q }}"
+           placeholder="Search titles, authors, descriptions..."
+           aria-label="Search">
+    <ul id="suggest" class="suggest"></ul>
+    <select name="sort" aria-label="Sort">
+      <option value="" {% if not sort %}selected{% endif %}>Relevance</option>
+      <option value="year desc" {% if sort=='year desc' %}selected{% endif %}>Newest</option>
+      <option value="year asc" {% if sort=='year asc' %}selected{% endif %}>Oldest</option>
+      <option value="price asc" {% if sort=='price asc' %}selected{% endif %}>Price low-high</option>
+      <option value="price desc" {% if sort=='price desc' %}selected{% endif %}>Price high-low</option>
+      <option value="rating desc" {% if sort=='rating desc' %}selected{% endif %}>Top rated</option>
+    </select>
+    <button type="submit">Search</button>
+  </form>
+</header>
+
+<main class="layout">
+  <aside class="sidebar">
+    <form action="/" method="get">
+      <input type="hidden" name="q" value="{{ q }}">
+      <input type="hidden" name="sort" value="{{ sort }}">
+      {% for field, label in [('genre','Genre'), ('publisher','Publisher'), ('in_stock','In stock')] %}
+      <section class="facet">
+        <h3>{{ label }}</h3>
+        {% for val, count in facets.get(field, [])[:10] %}
+        <label class="facet-row">
+          <input type="checkbox" name="{{ field }}" value="{{ val }}"
+                 {% if val in selected[field] %}checked{% endif %}>
+          <span>{{ val }}</span><span class="count">{{ count }}</span>
+        </label>
+        {% endfor %}
+      </section>
+      {% endfor %}
+      <section class="facet">
+        <h3>Year</h3>
+        <div class="range">
+          <input type="number" name="year_from" placeholder="from" value="{{ year_from }}">
+          <input type="number" name="year_to" placeholder="to" value="{{ year_to }}">
+        </div>
+      </section>
+      <button type="submit" class="apply">Apply filters</button>
+    </form>
+  </aside>
+
+  <section class="results">
+    {% if error %}
+      <div class="error">Error: {{ error }}</div>
+    {% else %}
+      <div class="meta">
+        Found <strong>{{ num_found }}</strong> results in {{ qtime }} ms
+        {% if q %} for &ldquo;<em>{{ q }}</em>&rdquo;{% endif %}
+      </div>
+      {% for d in docs %}
+        {% set hid = d.id if d.id is string else d.id[0] %}
+        {% set h = hl.get(hid, {}) %}
+        <article class="card">
+          <h2>{% if h.title %}{{ h.title[0]|safe }}{% else %}{{ d.title }}{% endif %}</h2>
+          <div class="byline">
+            by {% if h.author %}{{ h.author[0]|safe }}{% else %}{{ d.author }}{% endif %}
+            &middot; {{ d.genre }} &middot; {{ d.year }} &middot; {{ d.publisher }}
+          </div>
+          <p class="desc">
+            {% if h.description %}{{ h.description[0]|safe }}{% else %}{{ d.description }}{% endif %}
+          </p>
+          <div class="footer">
+            <span class="price">${{ "%.2f"|format(d.price) }}</span>
+            <span class="rating">&#x2605; {{ d.rating }}</span>
+            <span class="pages">{{ d.pages }} pages</span>
+            <span class="stock {{ 'yes' if d.in_stock else 'no' }}">
+              {{ 'In stock' if d.in_stock else 'Out of stock' }}
+            </span>
+          </div>
+        </article>
+      {% else %}
+        <div class="empty">No results. Try a broader query.</div>
+      {% endfor %}
+
+      {% if pages > 1 %}
+      <nav class="pager">
+        {% if page > 1 %}<a href="?{{ base_qs }}&page={{ page-1 }}">&lsaquo; Prev</a>{% endif %}
+        <span>Page {{ page }} of {{ pages }}</span>
+        {% if page < pages %}<a href="?{{ base_qs }}&page={{ page+1 }}">Next &rsaquo;</a>{% endif %}
+      </nav>
+      {% endif %}
+    {% endif %}
+  </section>
+</main>
+
+<script>
+const q = document.getElementById('q');
+const box = document.getElementById('suggest');
+let timer;
+q.addEventListener('input', () => {
+  clearTimeout(timer);
+  const v = q.value.trim();
+  if (v.length < 2) { box.innerHTML=''; return; }
+  timer = setTimeout(async () => {
+    const r = await fetch('/suggest?q=' + encodeURIComponent(v));
+    const items = await r.json();
+    box.innerHTML = items.map(s =>
+      `<li>${s.replace(/</g,'&lt;')}</li>`).join('');
+    box.querySelectorAll('li').forEach(li => {
+      li.onclick = () => { q.value = li.textContent; box.innerHTML=''; q.form.submit(); };
+    });
+  }, 150);
+});
+document.addEventListener('click', e => {
+  if (!box.contains(e.target) && e.target !== q) box.innerHTML='';
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+solr-9.6.1/
+solr-9.6.1.tgz
+*.pyc
+__pycache__/
+.venv/
+venv/
+.env
+*.log

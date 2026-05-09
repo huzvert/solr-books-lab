@@ -1,0 +1,15 @@
+{
+  "_comment": "Field definitions for the 'books' core. Posted to /solr/books/schema via add-field requests in setup.ps1.",
+  "fields": [
+    {"name": "title",       "type": "text_general", "stored": true, "indexed": true, "multiValued": false},
+    {"name": "author",      "type": "text_general", "stored": true, "indexed": true, "multiValued": false},
+    {"name": "genre",       "type": "string",       "stored": true, "indexed": true, "multiValued": false},
+    {"name": "publisher",   "type": "string",       "stored": true, "indexed": true, "multiValued": false},
+    {"name": "year",        "type": "pint",         "stored": true, "indexed": true, "multiValued": false},
+    {"name": "pages",       "type": "pint",         "stored": true, "indexed": true, "multiValued": false},
+    {"name": "price",       "type": "pfloat",       "stored": true, "indexed": true, "multiValued": false},
+    {"name": "rating",      "type": "pfloat",       "stored": true, "indexed": true, "multiValued": false},
+    {"name": "in_stock",    "type": "boolean",      "stored": true, "indexed": true, "multiValued": false},
+    {"name": "description", "type": "text_general", "stored": true, "indexed": true, "multiValued": false}
+  ]
+}

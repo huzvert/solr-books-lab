@@ -107,6 +107,49 @@ def home():
     )
 
 
+@app.route("/api/search")
+def api_search():
+    """JSON search endpoint for live, fetch-on-keystroke result rendering."""
+    q = request.args.get("q", "").strip()
+    sort = request.args.get("sort", "")
+    page = max(1, int(request.args.get("page", 1)))
+    selected = {
+        "genre": request.args.getlist("genre"),
+        "publisher": request.args.getlist("publisher"),
+        "in_stock": request.args.getlist("in_stock"),
+    }
+    filters = []
+    for field, vals in selected.items():
+        for v in vals:
+            filters.append(f'{field}:"{v}"')
+    year_from = request.args.get("year_from", "").strip()
+    year_to = request.args.get("year_to", "").strip()
+    if year_from or year_to:
+        filters.append(f"year:[{year_from or '*'} TO {year_to or '*'}]")
+    start = (page - 1) * PAGE_SIZE
+    try:
+        data = solr_search(q, filters, sort, start)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    docs = data.get("response", {}).get("docs", [])
+    for d in docs:
+        for k, v in list(d.items()):
+            if isinstance(v, list) and len(v) == 1:
+                d[k] = v[0]
+    hl = data.get("highlighting", {})
+    ff = data.get("facet_counts", {}).get("facet_fields", {})
+    facets = {fname: list(zip(arr[0::2], arr[1::2])) for fname, arr in ff.items()}
+    return jsonify({
+        "numFound": data.get("response", {}).get("numFound", 0),
+        "qtime": data.get("responseHeader", {}).get("QTime", 0),
+        "docs": docs,
+        "highlighting": hl,
+        "facets": facets,
+        "page": page,
+        "pageSize": PAGE_SIZE,
+    })
+
+
 @app.route("/suggest")
 def suggest():
     q = request.args.get("q", "").strip()

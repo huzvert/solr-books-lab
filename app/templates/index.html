@@ -101,21 +101,95 @@
 <script>
 const q = document.getElementById('q');
 const box = document.getElementById('suggest');
-let timer;
+const results = document.querySelector('.results');
+const sortSel = document.querySelector('select[name=sort]');
+let suggestTimer, liveTimer;
+
+function escapeHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;');
+}
+// Allow only <mark> through; everything else is escaped.
+function safeHl(s) {
+  return escapeHtml(s).replace(/&lt;mark&gt;/g,'<mark>').replace(/&lt;\/mark&gt;/g,'</mark>');
+}
+
+function renderResults(data) {
+  if (data.error) {
+    results.innerHTML = `<div class="error">Error: ${escapeHtml(data.error)}</div>`;
+    return;
+  }
+  const meta = `<div class="meta">Found <strong>${data.numFound}</strong> results in ${data.qtime} ms${q.value ? ` for &ldquo;<em>${escapeHtml(q.value)}</em>&rdquo;` : ''}</div>`;
+  if (!data.docs.length) {
+    results.innerHTML = meta + '<div class="empty">No results. Try a broader query.</div>';
+    return;
+  }
+  const cards = data.docs.map(d => {
+    const id = Array.isArray(d.id) ? d.id[0] : d.id;
+    const h = data.highlighting[id] || {};
+    const title = h.title ? safeHl(h.title[0]) : escapeHtml(d.title);
+    const author = h.author ? safeHl(h.author[0]) : escapeHtml(d.author);
+    const desc = h.description ? safeHl(h.description[0]) : escapeHtml(d.description);
+    const inStock = d.in_stock === true || d.in_stock === 'true';
+    return `<article class="card">
+      <h2>${title}</h2>
+      <div class="byline">by ${author} &middot; ${escapeHtml(d.genre)} &middot; ${escapeHtml(d.year)} &middot; ${escapeHtml(d.publisher)}</div>
+      <p class="desc">${desc}</p>
+      <div class="footer">
+        <span class="price">$${Number(d.price).toFixed(2)}</span>
+        <span class="rating">&#x2605; ${escapeHtml(d.rating)}</span>
+        <span class="pages">${escapeHtml(d.pages)} pages</span>
+        <span class="stock ${inStock ? 'yes' : 'no'}">${inStock ? 'In stock' : 'Out of stock'}</span>
+      </div></article>`;
+  }).join('');
+  const totalPages = Math.ceil(data.numFound / data.pageSize);
+  const pager = totalPages > 1
+    ? `<nav class="pager"><span>Page ${data.page} of ${totalPages}</span></nav>` : '';
+  results.innerHTML = meta + cards + pager;
+}
+
+function liveSearch() {
+  clearTimeout(liveTimer);
+  liveTimer = setTimeout(async () => {
+    const params = new URLSearchParams();
+    params.set('q', q.value);
+    if (sortSel.value) params.set('sort', sortSel.value);
+    document.querySelectorAll('.sidebar input[type=checkbox]:checked').forEach(c => {
+      params.append(c.name, c.value);
+    });
+    const yf = document.querySelector('input[name=year_from]');
+    const yt = document.querySelector('input[name=year_to]');
+    if (yf && yf.value) params.set('year_from', yf.value);
+    if (yt && yt.value) params.set('year_to', yt.value);
+    try {
+      const r = await fetch('/api/search?' + params.toString());
+      const data = await r.json();
+      renderResults(data);
+      // Update URL bar so the page is shareable, without reloading
+      history.replaceState(null, '', '/?' + params.toString());
+    } catch (e) {
+      results.innerHTML = `<div class="error">Network error: ${escapeHtml(e.message)}</div>`;
+    }
+  }, 180);
+}
+
+// Suggestions (autocomplete dropdown) — unchanged
 q.addEventListener('input', () => {
-  clearTimeout(timer);
+  liveSearch();
+  clearTimeout(suggestTimer);
   const v = q.value.trim();
   if (v.length < 2) { box.innerHTML=''; return; }
-  timer = setTimeout(async () => {
+  suggestTimer = setTimeout(async () => {
     const r = await fetch('/suggest?q=' + encodeURIComponent(v));
     const items = await r.json();
-    box.innerHTML = items.map(s =>
-      `<li>${s.replace(/</g,'&lt;')}</li>`).join('');
+    box.innerHTML = items.map(s => `<li>${escapeHtml(s)}</li>`).join('');
     box.querySelectorAll('li').forEach(li => {
-      li.onclick = () => { q.value = li.textContent; box.innerHTML=''; q.form.submit(); };
+      li.onclick = () => { q.value = li.textContent; box.innerHTML=''; liveSearch(); };
     });
   }, 150);
 });
+sortSel.addEventListener('change', liveSearch);
 document.addEventListener('click', e => {
   if (!box.contains(e.target) && e.target !== q) box.innerHTML='';
 });

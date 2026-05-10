@@ -216,6 +216,7 @@ def main():
     add_image_if_exists(doc, "06_autocomplete.png",  "Figure 10. Search results for the query 'harry'.")
     add_image_if_exists(doc, "07_facet_ui.png",      "Figure 11. Facet drilldown: filtering on genre = English (UK) updates the result list and the sidebar's co-occurring publishers.")
     add_image_if_exists(doc, "08_sort_ui.png",       "Figure 12. Sort by year descending returns the newest titles first.")
+    add_image_if_exists(doc, "14_live_search.png",   "Figure 13. Live search-as-you-type — the result list re-renders on every keystroke via fetch to /api/search; the URL bar updates with history.replaceState so any state remains shareable.")
 
     # 6. Observations
     add_heading(doc, "6. Observations and Analysis")
@@ -276,6 +277,16 @@ def main():
         "inconsistent index options=DOCS_AND_FREQS_AND_POSITIONS'. So the "
         "rule is firmer than I expected: declare the type before the first "
         "index run, or be prepared to delete the collection and start over.")
+
+    add_para(doc, "Live search-as-you-type.", bold=True)
+    add_para(doc,
+        "The Flask UI exposes a JSON endpoint at /api/search that returns the "
+        "same result set as the rendered page. The frontend debounces input "
+        "events on the search box (180 ms) and re-renders the result list on "
+        "every keystroke, without reloading the page. history.replaceState "
+        "keeps the URL in sync so any state (query, facets, sort) is still "
+        "shareable. The traditional form submit also still works as a "
+        "no-JavaScript fallback.")
 
     add_para(doc, "What I would change.", bold=True)
     add_para(doc,

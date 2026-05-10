@@ -5,6 +5,11 @@ QTime numbers for the report. Run AFTER setup.ps1 has indexed the data.
 
     python verify_queries.py
 """
+import sys
+try:
+    sys.stdout.reconfigure(encoding="utf-8")
+except Exception:
+    pass
 import requests
 
 BASE = "http://localhost:8983/solr/products/select"

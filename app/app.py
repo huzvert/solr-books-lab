@@ -36,6 +36,7 @@ def solr_search(q, filters, sort, start):
         ("facet", "true"),
         ("facet.field", "category"),
         ("facet.field", "brand"),
+        ("facet.field", "source"),
         ("facet.field", "in_stock"),
         ("facet.mincount", 1),
     ]
@@ -57,6 +58,7 @@ def home():
     selected = {
         "category": request.args.getlist("category"),
         "brand": request.args.getlist("brand"),
+        "source": request.args.getlist("source"),
         "in_stock": request.args.getlist("in_stock"),
     }
     filters = []
@@ -116,6 +118,7 @@ def api_search():
     selected = {
         "category": request.args.getlist("category"),
         "brand": request.args.getlist("brand"),
+        "source": request.args.getlist("source"),
         "in_stock": request.args.getlist("in_stock"),
     }
     filters = []

@@ -31,7 +31,7 @@
     <form action="/" method="get">
       <input type="hidden" name="q" value="{{ q }}">
       <input type="hidden" name="sort" value="{{ sort }}">
-      {% for field, label in [('category','Category'), ('brand','Brand'), ('in_stock','In stock')] %}
+      {% for field, label in [('category','Category'), ('brand','Brand'), ('source','Source'), ('in_stock','In stock')] %}
       <section class="facet">
         <h3>{{ label }}</h3>
         {% for val, count in facets.get(field, [])[:10] %}

@@ -31,6 +31,7 @@ $fields = @(
   @{name='price';       type='pfloat';       stored=$true; indexed=$true},
   @{name='rating';      type='pfloat';       stored=$true; indexed=$true},
   @{name='in_stock';    type='boolean';      stored=$true; indexed=$true},
+  @{name='source';      type='string';       stored=$true; indexed=$true},
   @{name='description'; type='text_general'; stored=$true; indexed=$true}
 )
 foreach ($f in $fields) {

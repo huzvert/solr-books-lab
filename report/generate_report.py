@@ -82,7 +82,8 @@ def main():
         "range of search queries against it, and put a web UI on top. Apache "
         "Solr is a Lucene-based search engine. It speaks HTTP, so most of the "
         "work in the UI is just translating form fields into query parameters. "
-        "I picked a real Amazon product catalog as the corpus, mostly because "
+        "I picked a real multi-marketplace e-commerce catalog as the corpus, "
+        "mostly because "
         "I wanted every column in the schema to come from the source data "
         "rather than be filled in synthetically — the price-range filter and "
         "the in-stock facet should demonstrate against real prices and real "
@@ -94,26 +95,32 @@ def main():
     # 2. Dataset description
     add_heading(doc, "2. Dataset Description")
     add_para(doc,
-        "The dataset is the Bright Data Amazon-products sample "
-        "(github.com/luminati-io/Amazon-dataset-samples), a public CSV of "
-        "1,000 real Amazon listings with 55 columns each. data/transform_amazon.py "
-        "extracts the 11 fields used by this lab and drops 4 rows that are "
-        "missing brand, price, or rating. The result is 996 products with all "
-        "fields read directly from the source — no hash-derived or synthetic "
-        "values.")
-    add_para(doc, "Each record is a single product with these fields:")
+        "The dataset combines four Bright Data e-commerce samples — Amazon, "
+        "Walmart, Lazada and Shopee — published under "
+        "github.com/luminati-io/{Amazon,eCommerce}-dataset-samples. Each "
+        "source ships ~1,000 real listings with its own column schema. "
+        "data/transform_ecommerce.py reads all four files, normalizes the "
+        "differing column names into the project schema, and drops rows "
+        "missing brand, price or rating. The Shein sample was excluded "
+        "because every row has rating=0 (the sample didn't include real "
+        "ratings), which would corrupt the rating-sort and rating-boost "
+        "queries. Output is 3,202 real products with every column read "
+        "directly from a source CSV — nothing hash-derived, nothing "
+        "synthetic.")
+    add_para(doc, "Each record carries these fields:")
     fields_table = [
-        ("id", "string", "Amazon ASIN (B09NQJFRW6, B0074TRKFI, ...)"),
+        ("id", "string", "Source-prefixed ID (A-B09NQJFRW6 from Amazon, W-... Walmart, L-... Lazada, S-... Shopee)"),
         ("title", "text_general", "Product name (full-text indexed)"),
         ("brand", "string", "Brand name — used as facet, untokenized so 'New Balance' stays one bucket"),
         ("brand_text", "text_general", "Tokenized copy of brand for full-text search; populated via copyField"),
-        ("category", "string", "Top-level Amazon category — facet field"),
-        ("subcategory", "string", "Second-level Amazon category — facet field"),
+        ("category", "string", "Top-level marketplace category — facet field"),
+        ("subcategory", "string", "Second-level marketplace category — facet field"),
         ("year", "pint", "First-available year, parsed from date_first_available"),
-        ("num_reviews", "pint", "Review count from Amazon, sortable"),
-        ("price", "pfloat", "Real Amazon price in USD"),
-        ("rating", "pfloat", "Real Amazon star rating (1.0-5.0)"),
+        ("num_reviews", "pint", "Real review count from the source listing, sortable"),
+        ("price", "pfloat", "Real listing price in USD"),
+        ("rating", "pfloat", "Real average star rating (1.0-5.0) from the source"),
         ("in_stock", "boolean", "Mapped from the availability column (true unless 'out of stock' / 'unavailable')"),
+        ("source", "string", "amazon | walmart | lazada | shopee — used as a sidebar facet so the user can drill into a single marketplace"),
         ("description", "text_general", "Real product description, truncated to 1500 chars"),
     ]
     table = doc.add_table(rows=1, cols=3)
@@ -130,12 +137,13 @@ def main():
 
     add_para(doc, "")
     add_para(doc,
-        "Source: github.com/luminati-io/Amazon-dataset-samples. Format: CSV, "
-        "996 rows after cleaning, ~2 MB. Top categories are Clothing/Shoes/"
-        "Jewelry (216), Home & Kitchen (150), Tools & Home Improvement (112), "
-        "Sports & Outdoors (78) and Electronics (75). Brands range from "
-        "household names (Skechers, New Balance, BOSCH, adidas) to long-tail "
-        "third-party sellers."
+        "Sources: github.com/luminati-io/{Amazon,eCommerce}-dataset-samples. "
+        "Per-source breakdown after cleaning: walmart 1,000 rows, amazon 996, "
+        "lazada 704, shopee 502 (totals 3,202). Top fully-classified "
+        "categories are Clothing/Shoes/Jewelry, Home & Kitchen, Tools & Home "
+        "Improvement, Sports & Outdoors and Electronics. Brand spread runs "
+        "from household names (Skechers, adidas, ASICS, Sony, Logitech) to "
+        "long-tail third-party sellers — a realistic e-commerce distribution."
     )
 
     # 3. Configuration details
@@ -154,8 +162,8 @@ def main():
         "embedded ZooKeeper instance on port 9983 coordinating cluster state. "
         "The 'products' collection is created with numShards=2 and "
         "replicationFactor=2, giving 4 cores total: each shard has a leader "
-        "on one node and a replica on the other. With ~996 documents that "
-        "puts roughly 498 in each shard. The Flask UI talks to a single "
+        "on one node and a replica on the other. With ~3,202 documents that "
+        "puts roughly 1,600 in each shard. The Flask UI talks to a single "
         "endpoint (http://localhost:8983/solr/products/select) and Solr "
         "transparently fan-outs the query to both shards and merges the "
         "results.")
@@ -189,12 +197,12 @@ def main():
     steps = [
         ("Install Solr", "Downloaded solr-9.6.1.tgz from archive.apache.org and extracted."),
         ("Start a SolrCloud cluster", ".\\solr-9.6.1\\bin\\solr.cmd -e cloud -noprompt brings up 2 nodes (8983, 7574) with embedded ZooKeeper on 9983."),
-        ("Download dataset", "curl the raw Amazon-products sample from github.com/luminati-io/Amazon-dataset-samples into data/amazon_raw.csv (1,000 rows, 55 columns)."),
-        ("Transform dataset", "python data/transform_amazon.py extracts the 11 fields used by this lab and drops 4 rows missing brand/price/rating. 996 valid rows out."),
+        ("Download datasets", "curl the four CSVs (amazon-products, walmart-products, lazada-products, shopee-products) from the luminati-io eCommerce-dataset-samples repos into data/."),
+        ("Transform datasets", "python data/transform_ecommerce.py merges all four into one products.csv (3,202 rows after cleaning). Each row carries a 'source' field naming its origin marketplace."),
         ("Create sharded collection", "POST /solr/admin/collections?action=CREATE&name=products&numShards=2&replicationFactor=2&collection.configName=_default — gives 4 cores spread across the two nodes."),
         ("Define schema", "POST add-field JSON for the 11 domain fields plus a copyField from brand to brand_text."),
-        ("Index data", "POST products.csv to /solr/products/update?commit=true&header=true with Content-Type application/csv. 996 docs commit in under a second."),
-        ("Verify shard distribution", "The 996 documents land roughly evenly across both shards via hash-based routing on the id field."),
+        ("Index data", "POST products.csv to /solr/products/update?commit=true&header=true with Content-Type application/csv. 3,202 docs commit in ~5 seconds."),
+        ("Verify shard distribution", "The 3,202 documents land roughly evenly across both shards via hash-based routing on the id field — about 1,600 per shard."),
         ("Run sample queries", "12 query types exercised in sample_queries.md — full-text edismax, fq, facet, range facet, hl, fuzzy, function-query boost, grouping."),
         ("Field-types experiment", "Created a separate 'products_bad' collection on a different configset with category declared as text_general instead of string. See Observations for the broken facet output."),
         ("Configure Suggester", "Posted SuggestComponent + /suggest_handler config to /solr/products/config (AnalyzingInfixLookupFactory over the title field)."),
@@ -220,18 +228,18 @@ def main():
     add_image_if_exists(doc, "11_query_tab.png",   "Figure 3. Solr Admin > Query tab on the products collection — the in-browser query builder used for ad-hoc testing during development.")
     add_image_if_exists(doc, "10_schema_tab.png",  "Figure 4. Schema tab for the 'brand' field on the products collection. Field-Type is StrField (string), Tokenized=NO. This keeps multi-word brands like 'New Balance' as a single facet bucket.")
     add_image_if_exists(doc, "13_field_experiment_bad_schema.png", "Figure 5. Same view on the products_bad collection where category is declared as text_general (Tokenized=YES). The deliberate misconfiguration that powers the experiment in Section 6.")
-    add_image_if_exists(doc, "02_indexed_count.png", "Figure 6. q=*:* against the products collection returns numFound=996 (sum across both shards).")
+    add_image_if_exists(doc, "02_indexed_count.png", "Figure 6. q=*:* against the products collection returns numFound=3202 (sum across both shards).")
     add_image_if_exists(doc, "03_facet_query.png",   "Figure 7. Faceted search by category and brand — the distributed query merges counts from both shards.")
     add_image_if_exists(doc, "04_highlight.png",     "Figure 8. Hit highlighting wraps matched terms with <mark> tags in the description field.")
     add_image_if_exists(doc, "12_field_experiment.png", "Figure 9. Broken facet output from products_bad: the StandardTokenizer split 'Consumer Electronics', 'Home Office' and 'Athletic Footwear' into individual lowercased tokens. Each multi-word category is now two unrelated buckets.")
-    add_image_if_exists(doc, "05_web_ui.png",        "Figure 10. Flask web UI: a search for 'running' returns ASICS, WETIKE, Skechers and other real Amazon products, with highlighted hits and sidebar facets.")
+    add_image_if_exists(doc, "05_web_ui.png",        "Figure 10. Flask web UI: a search for 'running' returns 102 hits across all 4 marketplaces (Amazon, Walmart, Lazada, Shopee) with the source facet visible in the sidebar.")
     add_image_if_exists(doc, "06_autocomplete.png",  "Figure 11. Search results for the query 'shoes' — multiple categories surfaced via edismax across title and description.")
     add_image_if_exists(doc, "07_facet_ui.png",      "Figure 12. Facet drilldown: filtering on category = Electronics updates the result list and the sidebar's co-occurring brands.")
     add_image_if_exists(doc, "08_sort_ui.png",       "Figure 13. Sort by rating descending returns the highest-rated products first.")
     add_image_if_exists(doc, "14_live_search.png",   "Figure 14. Live search-as-you-type. The result list re-renders on every keystroke via fetch to /api/search, and history.replaceState keeps the URL in sync so any state remains shareable.")
     add_image_if_exists(doc, "15_failover_before.png", "Figure 15. Cluster topology before the failover test: both nodes (8983 and 7574) live, products collection's four replicas spread across them.")
     add_image_if_exists(doc, "16_failover_after.png", "Figure 16. Same view after running 'solr.cmd stop -p 7574'. Only one node is live; the products collection is still fully available because each shard has a replica on the surviving node.")
-    add_image_if_exists(doc, "17_failover_query.png", "Figure 17. Flask web UI search for 'running' continues to return real Amazon results while node2 is down — confirming fault-tolerant distributed search.")
+    add_image_if_exists(doc, "17_failover_query.png", "Figure 17. Flask web UI search for 'running' continues to return real e-commerce results while node2 is down — confirming fault-tolerant distributed search.")
     add_image_if_exists(doc, "18_failover_json.png", "Figure 18. Raw Solr JSON response for the same query during the failover, captured directly from the surviving node1 endpoint.")
     add_image_if_exists(doc, "19_suggester.png",      "Figure 19. SuggestComponent response for suggest.q=running — returns full title strings with the matched substring wrapped in <b>...</b> via AnalyzingInfixLookupFactory.")
     add_image_if_exists(doc, "20_xml_ingest.png",     "Figure 20. Result of the XML ingestion demo (xml_ingest_demo.py): three documents posted to /update with Content-Type: application/xml, then read back via /select. The XML and CSV ingestion paths share the same /update endpoint; only the Content-Type differs.")
@@ -305,11 +313,11 @@ def main():
     add_para(doc, "Fault tolerance (failover demo).", bold=True)
     add_para(doc,
         "I tested the cluster's tolerance to a node failure. Starting from "
-        "both nodes up and 996 products indexed, I stopped node2 with "
+        "both nodes up and 3,202 products indexed, I stopped node2 with "
         "'solr.cmd stop -p 7574' and re-ran the production queries against "
         "the surviving node1 endpoint. Cluster status now reported "
         "live_nodes = ['localhost:8983_solr'] (only one), but queries kept "
-        "returning correct results: q=*:* still numFound=996, edismax "
+        "returning correct results: q=*:* still numFound=3202, edismax "
         "q=running still surfaced the ASICS, Skechers and New Balance shoes "
         "at the top. The reason is replicationFactor=2: every shard has a "
         "replica on each node, so node1 alone has a full copy of the "
@@ -324,7 +332,7 @@ def main():
         "all caches, then 9 warm runs. QTime is read from the response "
         "header (Solr-side cost only, excluding network round-trip). The "
         "same 12 queries were run in two configurations against the same "
-        "996-document collection: distributed (Solr fan-outs to both "
+        "3,202-document collection: distributed (Solr fan-outs to both "
         "shards and merges) and single-shard (distrib=false, hits one "
         "shard's ~5,000 docs). Mean and p95 QTime over the 9 warm runs are "
         "reported.")
@@ -337,13 +345,13 @@ def main():
     hdr[2].text = "single-shard"
     hdr[3].text = "ratio"
     rows = [
-        ("Q1 match-all",         "24.3", "0.9", "27x"),
-        ("Q2 edismax full-text", "32.4", "1.7", "19x"),
-        ("Q3 fq + price range",  "11.7", "2.0",  "6x"),
-        ("Q4 multi-field facets","18.3", "1.8", "10x"),
-        ("Q5 sort rating+reviews","10.9","0.6", "20x"),
-        ("Q6 highlighting",      "33.4","16.6",  "2x"),
-        ("Q9 fuzzy",             "14.9", "2.4",  "6x"),
+        ("Q1 match-all",          "3.6", "1.1",  "3x"),
+        ("Q2 edismax full-text", "10.4", "1.2",  "9x"),
+        ("Q3 fq + price range",  "15.0", "1.0", "15x"),
+        ("Q4 multi-field facets","35.9", "1.7", "22x"),
+        ("Q5 sort rating+reviews","13.7","0.4", "31x"),
+        ("Q6 highlighting",      "25.2", "8.6",  "3x"),
+        ("Q9 fuzzy",             "17.6", "0.9", "20x"),
         ("Q11 paging start=100", "13.3", "0.3", "40x"),
     ]
     for q, d_, s_, r_ in rows:
@@ -354,20 +362,20 @@ def main():
         rc[3].text = r_
     add_para(doc, "Interpretation.", bold=True)
     add_para(doc,
-        "Distributed wins zero of the twelve queries. It is 1.5x to 40x "
+        "Distributed wins zero of the twelve queries. It is 3x to 40x "
         "slower than the single-shard equivalent across the board. The "
         "reason is boring once you look at the single-shard column: each "
-        "shard's work on 498 documents is already sub-millisecond for most "
-        "queries. There is nothing to parallelize. The coordinator still "
-        "has to fan out, wait for the slower replica, and merge the "
+        "shard's work on ~1,600 documents is already sub-millisecond for "
+        "most queries. There is nothing to parallelize. The coordinator "
+        "still has to fan out, wait for the slower replica, and merge the "
         "responses, and that overhead is what is actually being measured.")
     add_para(doc,
         "Sharding starts paying off when per-shard work is expensive "
         "enough to make coordinator cost look small. For Lucene that "
-        "usually means millions of documents, not one thousand. The "
+        "usually means millions of documents, not a few thousand. The "
         "cluster was worth setting up because the prerequisite asked for "
         "it and because it lets me demonstrate failover, but I would not "
-        "shard a 1,000-row catalog in production. Per-query numbers "
+        "shard a 3K-row catalog in production. Per-query numbers "
         "including p95 are in report/benchmark_results.txt.")
 
     add_para(doc, "Suggester component (autocomplete).", bold=True)
@@ -469,14 +477,15 @@ def main():
     # 8. Conclusion
     add_heading(doc, "8. Conclusion")
     add_para(doc,
-        "What I have at the end is a 2-node SolrCloud cluster holding 996 "
-        "real Amazon products across two shards. Each shard has a replica "
-        "on the other node, so killing one node does not take queries "
-        "down — verified by stopping node2 and watching the search keep "
-        "working. The twelve sample queries all run against the "
-        "distributed collection. Every column in the schema was read from "
-        "the source CSV; nothing is synthetic. On top of that sits a "
-        "Flask UI with the manual's eight requested features plus live "
+        "What I have at the end is a 2-node SolrCloud cluster holding "
+        "3,202 real e-commerce products across two shards, drawn from "
+        "four marketplaces (Amazon, Walmart, Lazada, Shopee). Each shard "
+        "has a replica on the other node, so killing one node does not "
+        "take queries down — verified by stopping node2 and watching the "
+        "search keep working. The twelve sample queries all run against "
+        "the distributed collection. Every column in the schema was read "
+        "from a source CSV; nothing is synthetic. On top of that sits a "
+        "Flask UI with the manual's eight requested features, plus live "
         "search-as-you-type and a proper SuggestComponent autocomplete.")
     add_para(doc,
         "Two findings I want to keep from the empirical work. First, "
@@ -504,9 +513,9 @@ def main():
     add_para(doc, "")
     add_para(doc, "GitHub repository: https://github.com/huzvert/solr-books-lab", bold=True)
     add_para(doc, "(Repo retains its original 'solr-books-lab' name from the early commits; "
-                  "the project pivoted to a real Amazon-products dataset in later commits to "
-                  "remove all synthetic fields. All current code, docs and screenshots use "
-                  "the products schema.)", italic=True)
+                  "the project pivoted to a real multi-marketplace e-commerce dataset in "
+                  "later commits to remove every synthetic field. All current code, "
+                  "documentation and screenshots use the products schema.)", italic=True)
 
     OUT.parent.mkdir(parents=True, exist_ok=True)
     doc.save(OUT)

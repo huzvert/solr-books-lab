@@ -6,7 +6,7 @@ the source dataset — no synthetic columns.
 
 ## Stack
 - Apache Solr 9.6.1 in **SolrCloud** mode (2 nodes on 8983/7574, embedded ZooKeeper on 9983)
-- 996-record real Amazon-products dataset (Bright Data public sample)
+- 3,202-record real e-commerce dataset combining 4 marketplaces (Amazon, Walmart, Lazada, Shopee)
 - Python 3.13 + Flask + requests
 - Vanilla HTML/CSS/JS frontend (no build step)
 
@@ -45,18 +45,21 @@ tar -xzf solr-9.6.1.tgz
 This calls `solr.cmd -e cloud -noprompt` and brings up two nodes (8983, 7574)
 with embedded ZooKeeper on 9983. Confirm at http://localhost:8983/solr/
 
-### 3. Get the dataset
+### 3. Get the datasets
 ```powershell
-curl -L -o data\amazon_raw.csv https://raw.githubusercontent.com/luminati-io/Amazon-dataset-samples/main/amazon-products.csv
-python data\transform_amazon.py
+curl -L -o data\amazon_raw.csv      https://raw.githubusercontent.com/luminati-io/Amazon-dataset-samples/main/amazon-products.csv
+curl -L -o data\walmart-products.csv https://raw.githubusercontent.com/luminati-io/eCommerce-dataset-samples/main/walmart-products.csv
+curl -L -o data\lazada-products.csv  https://raw.githubusercontent.com/luminati-io/eCommerce-dataset-samples/main/lazada-products.csv
+curl -L -o data\shopee-products.csv  https://raw.githubusercontent.com/luminati-io/eCommerce-dataset-samples/main/shopee-products.csv
+python data\transform_ecommerce.py
 ```
-This produces `data\products.csv` with 996 records.
+This produces `data\products.csv` with 3,202 records across 4 marketplaces.
 
 ### 4. Create the sharded collection, define schema, index data
 ```powershell
 .\setup.ps1
 ```
-You should see `total docs across both shards: 996`.
+You should see `total docs across both shards: 3202`.
 
 ### 4. Run the web app
 ```powershell

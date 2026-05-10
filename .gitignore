@@ -7,3 +7,7 @@ __pycache__/
 venv/
 .env
 *.log
+
+# Office app lock files
+report/.~lock.*
+*.~lock.*

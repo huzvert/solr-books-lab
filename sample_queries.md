@@ -1,8 +1,8 @@
 # Sample Solr Queries
 
-Solr admin UI: http://localhost:8983/solr/#/books/query
+Solr admin UI: http://localhost:8983/solr/#/products/query
 
-All queries below hit `http://localhost:8983/solr/books/select`.
+All queries below hit `http://localhost:8983/solr/products/select`.
 
 ## 1. Match all (sanity check)
 ```
@@ -11,17 +11,18 @@ q=*:*&rows=5
 
 ## 2. Full-text search across multiple fields (edismax)
 ```
-q=quantum machine
+q=running shoes
 defType=edismax
-qf=title^3 author^2 description genre
+qf=title^3 brand_text^2 description category
 ```
-`qf` boosts title 3x, author 2x. Results favor docs where the term appears in the title.
+Title is boosted 3x and brand_text 2x, so a result whose title contains
+"running shoes" beats a result that only mentions running in its description.
 
-## 3. Filter query — narrow to a genre and price range
+## 3. Filter query — narrow to a category and price range
 ```
 q=*:*
-fq=genre:"Science Fiction"
-fq=price:[10 TO 30]
+fq=category:"Electronics"
+fq=price:[10 TO 50]
 ```
 `fq` is cached separately from `q`, so repeated facet drilldowns are fast.
 
@@ -29,68 +30,69 @@ fq=price:[10 TO 30]
 ```
 q=*:*
 facet=true
-facet.field=genre
-facet.field=publisher
+facet.field=category
+facet.field=brand
 facet.mincount=1
 rows=0
 ```
-Returns counts per genre/publisher with no documents — ideal for sidebar nav.
+Returns counts per category and brand without any documents — exactly what
+the sidebar needs.
 
-## 5. Sorting — newest first, then by rating
+## 5. Sorting — top-rated, then most reviewed
 ```
 q=*:*
-sort=year desc, rating desc
+sort=rating desc, num_reviews desc
 rows=10
 ```
 
 ## 6. Hit highlighting
 ```
-q=description:freedom
+q=description:wireless
 hl=true
 hl.fl=description
 hl.simple.pre=<mark>
 hl.simple.post=</mark>
 ```
 
-## 7. Range facet (decade buckets)
+## 7. Range facet (price buckets)
 ```
 q=*:*
 facet=true
-facet.range=year
-facet.range.start=1950
-facet.range.end=2030
-facet.range.gap=10
+facet.range=price
+facet.range.start=0
+facet.range.end=500
+facet.range.gap=50
 rows=0
 ```
 
 ## 8. Boolean & phrase queries
 ```
-q=title:"Lost Kingdom" AND in_stock:true
+q=title:"running shoes" AND in_stock:true
 ```
 
 ## 9. Fuzzy search (~2 edit distance)
 ```
-q=author:Smyth~2
+q=brand_text:Adidaz~2
 ```
-Matches "Smith", "Smyth", etc.
+Matches `adidas`, even though it's misspelled.
 
 ## 10. Function query — boost by rating
 ```
-q={!boost b=rating}fantasy
+q={!boost b=rating}category:Electronics
 defType=lucene
 ```
 
 ## 11. Pagination
 ```
 q=*:*
-start=20
+start=100
 rows=10
 ```
 
-## 12. Group by genre (top 3 per genre)
+## 12. Group by category (top 2 per category)
 ```
 q=*:*
 group=true
-group.field=genre
-group.limit=3
+group.field=category
+group.limit=2
 ```

@@ -82,11 +82,13 @@ def main():
         "range of search queries against it, and put a web UI on top. Apache "
         "Solr is a Lucene-based search engine. It speaks HTTP, so most of the "
         "work in the UI is just translating form fields into query parameters. "
-        "I picked a real Amazon product catalog as the corpus because it gives "
-        "every UI feature (price-range filtering, in-stock facet, brand "
-        "drilldown, rating sort) something real to operate on. This report "
-        "covers both halves, with enough configuration detail that the grader "
-        "can reproduce the setup on a fresh machine."
+        "I picked a real Amazon product catalog as the corpus, mostly because "
+        "I wanted every column in the schema to come from the source data "
+        "rather than be filled in synthetically — the price-range filter and "
+        "the in-stock facet should demonstrate against real prices and real "
+        "stock flags, not hash-derived ones. This report covers both halves "
+        "of the lab, with enough configuration detail that the grader can "
+        "reproduce the setup on a fresh machine."
     )
 
     # 2. Dataset description
@@ -231,7 +233,8 @@ def main():
     add_image_if_exists(doc, "16_failover_after.png", "Figure 16. Same view after running 'solr.cmd stop -p 7574'. Only one node is live; the products collection is still fully available because each shard has a replica on the surviving node.")
     add_image_if_exists(doc, "17_failover_query.png", "Figure 17. Flask web UI search for 'running' continues to return real Amazon results while node2 is down — confirming fault-tolerant distributed search.")
     add_image_if_exists(doc, "18_failover_json.png", "Figure 18. Raw Solr JSON response for the same query during the failover, captured directly from the surviving node1 endpoint.")
-    add_image_if_exists(doc, "19_suggester.png",      "Figure 19. SuggestComponent response for suggest.q=harry — returns full title strings with the matched substring wrapped in <b>...</b> via AnalyzingInfixLookupFactory.")
+    add_image_if_exists(doc, "19_suggester.png",      "Figure 19. SuggestComponent response for suggest.q=running — returns full title strings with the matched substring wrapped in <b>...</b> via AnalyzingInfixLookupFactory.")
+    add_image_if_exists(doc, "20_xml_ingest.png",     "Figure 20. Result of the XML ingestion demo (xml_ingest_demo.py): three documents posted to /update with Content-Type: application/xml, then read back via /select. The XML and CSV ingestion paths share the same /update endpoint; only the Content-Type differs.")
 
     # 6. Observations
     add_heading(doc, "6. Observations and Analysis")
@@ -409,6 +412,20 @@ def main():
         "but pass several values through string parsers internally, so any "
         "unquoted boolean or number can hit this.")
 
+    add_para(doc, "Alternate ingestion path: XML.", bold=True)
+    add_para(doc,
+        "The lab manual lists three ways to load data into Solr (Solr Cell "
+        "for binary formats, XML over HTTP, and the Java client API). The "
+        "main pipeline uses CSV, which is one of the four built-in update "
+        "handler formats but is not on the manual's list. To cover a second "
+        "path I wrote xml_ingest_demo.py: it creates a small auxiliary "
+        "collection, defines a minimal schema, then POSTs three documents "
+        "as <add><doc>...</doc></add> XML to /update with "
+        "Content-Type: application/xml. The same /update endpoint accepts "
+        "CSV, XML, JSON and javabin — the only thing that changes between "
+        "them is the Content-Type header. See Figure 20 for the read-back "
+        "result.")
+
     add_para(doc, "Live search-as-you-type.", bold=True)
     add_para(doc,
         "The Flask UI exposes a JSON endpoint at /api/search that returns the "
@@ -452,13 +469,15 @@ def main():
     # 8. Conclusion
     add_heading(doc, "8. Conclusion")
     add_para(doc,
-        "By the end I had a 2-node SolrCloud cluster holding 996 real "
-        "Amazon products across two shards, with replicas mirrored so a "
-        "node failure does not take queries down. Twelve query patterns "
-        "work against the distributed collection, all of them against "
-        "real fields read from the source CSV. The Flask UI on top covers "
-        "search, facets, price range, sort, pagination, highlighting, "
-        "real autocomplete via SuggestComponent, and search-as-you-type.")
+        "What I have at the end is a 2-node SolrCloud cluster holding 996 "
+        "real Amazon products across two shards. Each shard has a replica "
+        "on the other node, so killing one node does not take queries "
+        "down — verified by stopping node2 and watching the search keep "
+        "working. The twelve sample queries all run against the "
+        "distributed collection. Every column in the schema was read from "
+        "the source CSV; nothing is synthetic. On top of that sits a "
+        "Flask UI with the manual's eight requested features plus live "
+        "search-as-you-type and a proper SuggestComponent autocomplete.")
     add_para(doc,
         "Two findings I want to keep from the empirical work. First, "
         "schema choices are load-bearing in a way I did not appreciate "

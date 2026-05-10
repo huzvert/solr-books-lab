@@ -1,4 +1,4 @@
-"""Run the 12 sample queries against Solr and print a summary.
+"""Run the 12 sample queries against the products collection and print a summary.
 
 Used during the lab to demonstrate each query type works and to capture
 QTime numbers for the report. Run AFTER setup.ps1 has indexed the data.
@@ -6,9 +6,8 @@ QTime numbers for the report. Run AFTER setup.ps1 has indexed the data.
     python verify_queries.py
 """
 import requests
-import json
 
-BASE = "http://localhost:8983/solr/books/select"
+BASE = "http://localhost:8983/solr/products/select"
 
 
 def run(name, params, show_docs=False):
@@ -31,7 +30,10 @@ def run(name, params, show_docs=False):
         for d in data["response"]["docs"][:3]:
             t = d.get("title")
             t = t[0] if isinstance(t, list) else t
-            print(f"   * {d.get('id')}  {t}")
+            b = d.get("brand")
+            b = b[0] if isinstance(b, list) else b
+            price = d.get("price")
+            print(f"   * {d.get('id')}  [{b}]  {t} (${price})")
     if "facet_counts" in data:
         ff = data["facet_counts"]["facet_fields"]
         for fname, arr in ff.items():
@@ -45,36 +47,36 @@ def run(name, params, show_docs=False):
 if __name__ == "__main__":
     run("Q1 match-all", {"q": "*:*", "rows": 0})
     run("Q2 edismax full-text", {
-        "q": "quantum machine", "defType": "edismax",
-        "qf": "title^3 author^2 description", "rows": 3,
+        "q": "running shoes", "defType": "edismax",
+        "qf": "title^3 brand_text^2 description category", "rows": 3,
     }, show_docs=True)
-    run("Q3 fq genre + price range", {
-        "q": "*:*", "fq": ['genre:"Science Fiction"', "price:[10 TO 30]"], "rows": 3,
+    run("Q3 fq category + price range", {
+        "q": "*:*", "fq": ['category:"Electronics"', "price:[10 TO 50]"], "rows": 3,
     }, show_docs=True)
-    run("Q4 facet by genre/publisher", {
+    run("Q4 facet by category/brand", {
         "q": "*:*", "facet": "true",
-        "facet.field": ["genre", "publisher"],
-        "facet.mincount": 1, "rows": 0,
+        "facet.field": ["category", "brand"],
+        "facet.mincount": 1, "facet.limit": 6, "rows": 0,
     })
-    run("Q5 sort by year desc", {
-        "q": "*:*", "sort": "year desc, rating desc", "rows": 3,
+    run("Q5 sort by rating desc", {
+        "q": "*:*", "sort": "rating desc, num_reviews desc", "rows": 3,
     }, show_docs=True)
     run("Q6 highlighting", {
-        "q": "description:freedom", "hl": "true", "hl.fl": "description",
+        "q": "description:wireless", "hl": "true", "hl.fl": "description",
         "hl.simple.pre": "<mark>", "hl.simple.post": "</mark>", "rows": 1,
     })
-    run("Q7 range facet by decade", {
-        "q": "*:*", "facet": "true", "facet.range": "year",
-        "facet.range.start": 1950, "facet.range.end": 2030,
-        "facet.range.gap": 10, "rows": 0,
+    run("Q7 range facet by price bucket", {
+        "q": "*:*", "facet": "true", "facet.range": "price",
+        "facet.range.start": 0, "facet.range.end": 500,
+        "facet.range.gap": 50, "rows": 0,
     })
-    run("Q8 phrase + boolean", {"q": 'title:"Lost Kingdom" AND in_stock:true'})
-    run("Q9 fuzzy author", {"q": "author:Smyth~2", "rows": 3}, show_docs=True)
+    run("Q8 phrase + boolean", {"q": 'title:"running shoes" AND in_stock:true'})
+    run("Q9 fuzzy brand", {"q": "brand_text:Adidaz~2", "rows": 3}, show_docs=True)
     run("Q10 boost by rating", {
-        "q": "{!boost b=rating}genre:Fantasy", "defType": "lucene", "rows": 3,
+        "q": "{!boost b=rating}category:Electronics", "defType": "lucene", "rows": 3,
     }, show_docs=True)
-    run("Q11 pagination start=20", {"q": "*:*", "start": 20, "rows": 5})
-    run("Q12 group by genre", {
-        "q": "*:*", "group": "true", "group.field": "genre", "group.limit": 2,
+    run("Q11 pagination start=100", {"q": "*:*", "start": 100, "rows": 5})
+    run("Q12 group by category", {
+        "q": "*:*", "group": "true", "group.field": "category", "group.limit": 2,
     })
     print("\nAll 12 queries executed.")

@@ -206,20 +206,23 @@ def main():
     add_heading(doc, "5. Screenshots")
     add_image_if_exists(doc, "01_solr_admin.png",  "Figure 1. Solr Admin UI dashboard showing the running SolrCloud instance.")
     add_image_if_exists(doc, "09_solrcloud_topology.png", "Figure 2. SolrCloud Cloud > Nodes view: two nodes (ports 8983 and 7574), each hosting two replicas of the sharded 'books' collection.")
-    add_image_if_exists(doc, "10_schema_tab.png",  "Figure 3. Solr Admin > Schema tab for the 'genre' field on the books collection. Field-Type is StrField (string), Tokenized=NO. This is the production-correct setting.")
-    add_image_if_exists(doc, "11_query_tab.png",   "Figure 4. Solr Admin > Query tab — the in-browser query builder used for ad-hoc testing.")
-    add_image_if_exists(doc, "02_indexed_count.png", "Figure 5. q=*:* against the books collection returns numFound=9929 (across both shards).")
-    add_image_if_exists(doc, "03_facet_query.png",   "Figure 6. Faceted search by genre and publisher — distributed query merges counts from both shards.")
-    add_image_if_exists(doc, "04_highlight.png",     "Figure 7. Hit highlighting wraps matched terms with <mark> tags in the description field.")
-    add_image_if_exists(doc, "12_field_experiment.png", "Figure 8. Broken facet output from the books_bad collection (genre declared as text_general). 'Science Fiction' and 'Historical Fiction' have been split by the analyzer; the 'fiction' token now has count=4 because both source values contributed to it.")
-    add_image_if_exists(doc, "05_web_ui.png",        "Figure 9. Flask web UI: search for 'potter' returns the Harry Potter series with highlighted hits, sidebar facets, and metadata.")
-    add_image_if_exists(doc, "06_autocomplete.png",  "Figure 10. Search results for the query 'harry'.")
-    add_image_if_exists(doc, "07_facet_ui.png",      "Figure 11. Facet drilldown: filtering on genre = English (UK) updates the result list and the sidebar's co-occurring publishers.")
-    add_image_if_exists(doc, "08_sort_ui.png",       "Figure 12. Sort by year descending returns the newest titles first.")
-    add_image_if_exists(doc, "14_live_search.png",   "Figure 13. Live search-as-you-type — the result list re-renders on every keystroke via fetch to /api/search; the URL bar updates with history.replaceState so any state remains shareable.")
-    add_image_if_exists(doc, "16_failover_after.png", "Figure 14. Cluster topology after stopping node2 (port 7574). Only one node remains live; the books collection is still fully available because each shard has a replica on the surviving node.")
-    add_image_if_exists(doc, "17_failover_query.png", "Figure 15. Web UI search for 'potter' continues to return all 29 results while node2 is down — confirming fault-tolerant distributed search.")
-    add_image_if_exists(doc, "19_suggester.png",      "Figure 16. SuggestComponent response for suggest.q=harry — returns full title strings with the matched substring wrapped in <b>...</b> via AnalyzingInfixLookupFactory.")
+    add_image_if_exists(doc, "11_query_tab.png",   "Figure 3. Solr Admin > Query tab on the books collection — the in-browser query builder used for ad-hoc testing during development.")
+    add_image_if_exists(doc, "10_schema_tab.png",  "Figure 4. Schema tab for the 'genre' field on the books (production) collection. Field-Type is StrField (string), Tokenized=NO. This is the production-correct setting.")
+    add_image_if_exists(doc, "13_field_experiment_bad_schema.png", "Figure 5. Schema tab for the same field on the books_bad collection: Field-Type is text_general, Tokenized=YES. Used as the deliberate-misconfiguration baseline for the field-types experiment in Section 6.")
+    add_image_if_exists(doc, "02_indexed_count.png", "Figure 6. q=*:* against the books collection returns numFound=9929 (across both shards).")
+    add_image_if_exists(doc, "03_facet_query.png",   "Figure 7. Faceted search by genre and publisher — the distributed query merges counts from both shards.")
+    add_image_if_exists(doc, "04_highlight.png",     "Figure 8. Hit highlighting wraps matched terms with <mark> tags in the description field.")
+    add_image_if_exists(doc, "12_field_experiment.png", "Figure 9. Broken facet output from books_bad: the StandardTokenizer split 'Science Fiction' and 'Historical Fiction' into individual tokens, and the two 'fiction' tokens collapsed into a single bucket of 4. The genre information is destroyed.")
+    add_image_if_exists(doc, "05_web_ui.png",        "Figure 10. Flask web UI: a search for 'potter' returns the Harry Potter series with highlighted hits, sidebar facets, and full metadata.")
+    add_image_if_exists(doc, "06_autocomplete.png",  "Figure 11. Search results for the query 'harry'.")
+    add_image_if_exists(doc, "07_facet_ui.png",      "Figure 12. Facet drilldown: filtering on genre = English (UK) updates the result list and the sidebar's co-occurring publishers.")
+    add_image_if_exists(doc, "08_sort_ui.png",       "Figure 13. Sort by year descending returns the newest titles first.")
+    add_image_if_exists(doc, "14_live_search.png",   "Figure 14. Live search-as-you-type. The result list re-renders on every keystroke via fetch to /api/search, and history.replaceState keeps the URL in sync so any state remains shareable.")
+    add_image_if_exists(doc, "15_failover_before.png", "Figure 15. Cluster topology before the failover test: both nodes (8983 and 7574) live, books collection's four replicas (s1r4, s1r6, s2r1, s2r2) spread across them.")
+    add_image_if_exists(doc, "16_failover_after.png", "Figure 16. Same view after running 'solr.cmd stop -p 7574'. Only one node is live; the books collection is still fully available because each shard has a replica on the surviving node.")
+    add_image_if_exists(doc, "17_failover_query.png", "Figure 17. Flask web UI search for 'potter' returns all 29 results while node2 is down — confirming fault-tolerant distributed search.")
+    add_image_if_exists(doc, "18_failover_json.png", "Figure 18. Raw Solr JSON response for the same query during the failover, captured directly from the surviving node1 endpoint.")
+    add_image_if_exists(doc, "19_suggester.png",      "Figure 19. SuggestComponent response for suggest.q=harry — returns full title strings with the matched substring wrapped in <b>...</b> via AnalyzingInfixLookupFactory.")
 
     # 6. Observations
     add_heading(doc, "6. Observations and Analysis")
@@ -257,7 +260,7 @@ def main():
         "indexed six identical rows covering three multi-word genres (Science "
         "Fiction x2, Historical Fiction x2, Crime Thriller x2).")
     add_para(doc,
-        "books_bad facet output (Figure 8): "
+        "books_bad facet output (Figure 9): "
         "'fiction' -> 4, 'crime' -> 2, 'historical' -> 2, 'science' -> 2, "
         "'thriller' -> 2.")
     add_para(doc,
@@ -294,7 +297,7 @@ def main():
         "across both nodes; node1 already holds a full replica of every "
         "shard. After verification I restarted node2 and the cluster returned "
         "to its original 2-node state with no manual intervention. See "
-        "Figures 14, 15 in the screenshots section.")
+        "Figures 15-18 in the screenshots section.")
 
     add_para(doc, "Performance methodology and shard-overhead measurement.", bold=True)
     add_para(doc,
@@ -333,16 +336,21 @@ def main():
         rc[3].text = r_
     add_para(doc, "Interpretation.", bold=True)
     add_para(doc,
-        "The distributed query is consistently slower than the single-shard "
-        "equivalent on this dataset, by ratios of 3x to 37x. At 9,929 "
-        "documents the per-shard work is so cheap (often sub-millisecond) "
-        "that the coordinator overhead of a fan-out + merge dominates. "
-        "Sharding pays off when the per-shard work itself is expensive "
-        "enough to swamp the coordinator cost; that crossover usually sits "
-        "in the millions-of-documents range. For this lab the cluster was "
-        "the right thing to demonstrate the topology, but it would not be "
-        "the right architecture for a production catalog of this size. "
-        "Full per-query numbers including p95 are in report/benchmark_results.txt.")
+        "Distributed wins zero of the twelve queries. It's 3x to 37x slower "
+        "than the single-shard equivalent across the board. The reason is "
+        "boring once you look at the single-shard column: each shard's work "
+        "is already sub-millisecond. There is nothing to parallelize. The "
+        "coordinator still has to fan out, wait for the slowest replica, "
+        "and merge the responses, and that overhead is what we are actually "
+        "measuring.")
+    add_para(doc,
+        "Sharding starts to pay off when the per-shard work is expensive "
+        "enough to make the coordinator cost look small. For Lucene that "
+        "usually means millions of documents, not ten thousand. For this "
+        "lab the cluster was worth setting up because the prerequisite "
+        "asked for it and because it lets me demonstrate failover, but I "
+        "would not run a 10K-record catalog this way in production. "
+        "Per-query numbers including p95 are in report/benchmark_results.txt.")
 
     add_para(doc, "Suggester component (autocomplete).", bold=True)
     add_para(doc,
@@ -374,16 +382,16 @@ def main():
         "(Mickey Haller, #1; Harry Bosch Universe, #16)' as well as 'Harry "
         "Potter and the Sorcerer's Stone'. The Flask /suggest endpoint now "
         "calls the Suggester first and falls back to the wildcard query if "
-        "the handler isn't configured (older deployments). See Figure 16.")
+        "the handler isn't configured (older deployments). See Figure 19.")
     add_para(doc, "Side-finding while configuring this:", bold=True)
     add_para(doc,
-        "The Solr config API is strict about JSON value types. Sending "
-        "buildOnCommit: true (boolean) returns 500 with a "
-        "'Boolean cannot be cast to String' ClassCastException in "
-        "SuggestComponent.inform(). Quoting the value as \"true\" works. "
-        "This is documented behavior in older Solr versions (the schema and "
-        "config APIs accept JSON but coerce many fields back through string "
-        "parsers internally).")
+        "The first time I posted this config I sent buildOnCommit: true as a "
+        "JSON boolean and got a 500 back. The Solr server log had the real "
+        "story: 'class java.lang.Boolean cannot be cast to class "
+        "java.lang.String' inside SuggestComponent.inform(). Quoting it as "
+        "\"true\" worked immediately. The schema and config APIs accept JSON "
+        "but pass several values through string parsers internally, so any "
+        "unquoted boolean or number can hit this.")
 
     add_para(doc, "Live search-as-you-type.", bold=True)
     add_para(doc,
@@ -428,18 +436,25 @@ def main():
     # 8. Conclusion
     add_heading(doc, "8. Conclusion")
     add_para(doc,
-        "By the end I had a 2-node SolrCloud cluster running 9,929 real "
-        "Goodreads records sharded across two cores, twelve query patterns "
-        "working against the distributed collection, an empirical "
-        "demonstration of why genre needs to be a string field, a measured "
-        "comparison of distributed vs single-shard latency (the distributed "
-        "version is 3-37x slower at this scale because coordinator overhead "
-        "dominates), a fault-tolerance test (node2 killed, queries still "
-        "served from node1's replicas), the SuggestComponent wired in for "
-        "real autocomplete, and a Flask UI on top exposing search, facets, "
-        "range filters, sort, pagination, highlighting, autocomplete, and "
-        "live search-as-you-type. Once the schema was right, almost every "
-        "feature in the UI was just one HTTP GET against Solr.")
+        "By the end I had a 2-node SolrCloud cluster holding 9,929 real "
+        "Goodreads books across two shards, with replicas mirrored so a "
+        "node failure does not take queries down. Twelve query patterns "
+        "work against the distributed collection. The Flask UI on top "
+        "covers search, facets, range filters, sort, pagination, "
+        "highlighting, real autocomplete (via SuggestComponent), and "
+        "search-as-you-type.")
+    add_para(doc,
+        "Two findings I want to keep from the empirical work. First, "
+        "schema choices are load-bearing in a way I did not appreciate "
+        "before: declaring genre as text_general silently splits "
+        "multi-word values across separate facet buckets. Second, "
+        "sharding at this corpus size is a net loss. The distributed "
+        "version of every query I ran was 3 to 37 times slower than the "
+        "single-shard equivalent because the coordinator overhead is the "
+        "dominant cost when the per-shard work is already sub-millisecond. "
+        "I would still set up the cluster for the topology and failover "
+        "demos, but I would not shard a 10K-document catalog in "
+        "production.")
     add_para(doc,
         "Two things bit me and are worth remembering for next time. First: "
         "declare numeric and string field types BEFORE the first index run, "

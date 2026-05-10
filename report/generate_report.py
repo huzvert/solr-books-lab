@@ -187,6 +187,8 @@ def main():
     add_image_if_exists(doc, "04_highlight.png",     "Figure 4. Hit highlighting on the description field.")
     add_image_if_exists(doc, "05_web_ui.png",        "Figure 5. Flask web UI with search, facets and sorting.")
     add_image_if_exists(doc, "06_autocomplete.png",  "Figure 6. Autocomplete suggestions while typing.")
+    add_image_if_exists(doc, "07_facet_ui.png",      "Figure 7. Facet drilldown — Fantasy genre selected, sidebar updates with co-occurring publishers.")
+    add_image_if_exists(doc, "08_sort_ui.png",       "Figure 8. Sort by year descending, returning newest titles first.")
 
     # 6. Observations
     add_heading(doc, "6. Observations and Analysis")

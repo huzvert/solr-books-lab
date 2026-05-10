@@ -13,3 +13,4 @@ venv/
 # Office app lock files
 report/.~lock.*
 *.~lock.*
+data/shein-products.csv

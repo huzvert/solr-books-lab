@@ -2,52 +2,61 @@ Field-types experiment: facet on tokenized vs string field
 ==========================================================
 
 Identical input data committed to two collections that differ ONLY in the
-declared type of the `genre` field.
+declared type of the `category` field.
 
-Input rows (6 docs, 3 distinct genres, 2 docs each):
-  A1, Book A, Science Fiction
-  A2, Book B, Science Fiction
-  A3, Book C, Historical Fiction
-  A4, Book D, Historical Fiction
-  A5, Book E, Crime Thriller
-  A6, Book F, Crime Thriller
+Input rows (6 docs, 3 distinct categories, 2 docs each):
+  P1, Wireless Headphones, Consumer Electronics
+  P2, Bluetooth Speaker,   Consumer Electronics
+  P3, Office Desk,         Home Office
+  P4, Office Chair,        Home Office
+  P5, Running Shoes,       Athletic Footwear
+  P6, Tennis Racket,       Athletic Footwear
 
-Run #1 — books_bad, genre declared as text_general:
-  facet=true&facet.field=genre&facet.mincount=1
+Run #1 — products_bad, category declared as text_general:
+  facet=true&facet.field=category&facet.mincount=1
   ->
-  'fiction'    -> 4
-  'crime'      -> 2
-  'historical' -> 2
-  'science'    -> 2
-  'thriller'   -> 2
+  'electronics' -> 2
+  'consumer'    -> 2
+  'home'        -> 2
+  'office'      -> 2
+  'athletic'    -> 2
+  'footwear'    -> 2
 
   The StandardTokenizer split each multi-word value on whitespace and
-  lowercased it. "Science Fiction" became {science, fiction}, "Historical
-  Fiction" became {historical, fiction}, and the two `fiction` tokens
-  collapsed into one bucket with count 4. The genre information needed for
-  sidebar navigation is destroyed.
+  lowercased the tokens. "Consumer Electronics" became {consumer,
+  electronics}, "Home Office" became {home, office}, "Athletic Footwear"
+  became {athletic, footwear}. The category names a user actually sees in
+  the sidebar are gone.
 
-Run #2 — books, genre declared as string:
+Run #2 — products, category declared as string:
   Same query against the production collection.
   ->
-  'Science Fiction'    -> 2
-  'Historical Fiction' -> 2
-  'Crime Thriller'     -> 2
+  'Clothing, Shoes & Jewelry'  -> 216
+  'Home & Kitchen'             -> 150
+  'Tools & Home Improvement'   -> 112
+  'Sports & Outdoors'          -> 78
+  'Electronics'                -> 75
+  ...
 
-  string fields skip the analyzer chain. The value is stored and indexed
-  byte-for-byte, so each multi-word genre survives intact and faceting
-  returns the buckets we want.
+  string fields skip the analyzer chain. Each value is stored and indexed
+  byte-for-byte, so multi-word categories like 'Tools & Home Improvement'
+  survive intact and faceting returns the buckets we want. Same applies
+  to brand — 'New Balance' would split into {new, balance} as text_general
+  but stays one bucket as string. brand_text (text_general, populated via
+  copyField) carries the tokenized version for full-text search.
 
 Conclusion:
   Pick `string` (not `text_general`) for any field whose values are atomic
-  labels — categories, statuses, IDs. Use `text_general` for natural-language
-  fields where you want lowercasing, tokenization, and stopword removal.
+  labels — categories, brands, statuses, IDs. Use `text_general` for
+  natural-language fields where you want lowercasing, tokenization, and
+  stopword removal. Use copyField when you need both behaviors on
+  different copies of the same source value.
 
 Note on schema migration:
-  Switching `genre` from string to text_general AFTER documents had already
-  been indexed produced this Lucene error on the next update:
+  Switching `category` from string to text_general AFTER documents had
+  already been indexed produced this Lucene error on the next update:
 
-    cannot change field "genre" from index options=DOCS to inconsistent
+    cannot change field "category" from index options=DOCS to inconsistent
     index options=DOCS_AND_FREQS_AND_POSITIONS
 
   In other words: declare the type before the first index run, or be

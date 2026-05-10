@@ -1,9 +1,11 @@
 # Apache Solr — Books Search Lab (CS-347 Lab 13)
 
-End-to-end Apache Solr lab: indexing, querying and a Flask web UI for searching a books catalog.
+End-to-end Apache Solr lab: a 2-node sharded SolrCloud cluster indexing 9,929 real
+Goodreads books, with a Flask web UI on top.
 
 ## Stack
-- Apache Solr 9.6.1 (standalone)
+- Apache Solr 9.6.1 in **SolrCloud** mode (2 nodes on 8983/7574, embedded ZooKeeper on 9983)
+- 9,929-record real dataset from the public Goodbooks-10K corpus
 - Python 3.13 + Flask + requests
 - Vanilla HTML/CSS/JS frontend (no build step)
 
@@ -35,18 +37,25 @@ and extract into this directory:
 tar -xzf solr-9.6.1.tgz
 ```
 
-### 2. Start Solr
+### 2. Start the SolrCloud cluster
 ```powershell
 .\start-solr.ps1
 ```
-Wait for `Started Solr server on port 8983`. Confirm at http://localhost:8983/solr/
+This calls `solr.cmd -e cloud -noprompt` and brings up two nodes (8983, 7574)
+with embedded ZooKeeper on 9983. Confirm at http://localhost:8983/solr/
 
-### 3. Create core, define schema, index data (in a new terminal)
+### 3. Get the dataset
 ```powershell
-python data\generate_books.py     # creates books.csv (skip if already present)
+curl -L -o data\goodbooks_raw.csv https://raw.githubusercontent.com/zygmuntz/goodbooks-10k/master/books.csv
+python data\transform_goodbooks.py
+```
+This produces `data\books.csv` with 9,929 records.
+
+### 4. Create the sharded collection, define schema, index data
+```powershell
 .\setup.ps1
 ```
-You should see `Done. Indexed 600 documents.`
+You should see `total docs across both shards: 9929`.
 
 ### 4. Run the web app
 ```powershell

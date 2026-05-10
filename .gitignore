@@ -1,5 +1,6 @@
 solr-9.6.1/
 solr-9.6.1.tgz
+data/goodbooks_raw.csv
 *.pyc
 __pycache__/
 .venv/

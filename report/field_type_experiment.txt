@@ -1,0 +1,54 @@
+Field-types experiment: facet on tokenized vs string field
+==========================================================
+
+Identical input data committed to two collections that differ ONLY in the
+declared type of the `genre` field.
+
+Input rows (6 docs, 3 distinct genres, 2 docs each):
+  A1, Book A, Science Fiction
+  A2, Book B, Science Fiction
+  A3, Book C, Historical Fiction
+  A4, Book D, Historical Fiction
+  A5, Book E, Crime Thriller
+  A6, Book F, Crime Thriller
+
+Run #1 — books_bad, genre declared as text_general:
+  facet=true&facet.field=genre&facet.mincount=1
+  ->
+  'fiction'    -> 4
+  'crime'      -> 2
+  'historical' -> 2
+  'science'    -> 2
+  'thriller'   -> 2
+
+  The StandardTokenizer split each multi-word value on whitespace and
+  lowercased it. "Science Fiction" became {science, fiction}, "Historical
+  Fiction" became {historical, fiction}, and the two `fiction` tokens
+  collapsed into one bucket with count 4. The genre information needed for
+  sidebar navigation is destroyed.
+
+Run #2 — books, genre declared as string:
+  Same query against the production collection.
+  ->
+  'Science Fiction'    -> 2
+  'Historical Fiction' -> 2
+  'Crime Thriller'     -> 2
+
+  string fields skip the analyzer chain. The value is stored and indexed
+  byte-for-byte, so each multi-word genre survives intact and faceting
+  returns the buckets we want.
+
+Conclusion:
+  Pick `string` (not `text_general`) for any field whose values are atomic
+  labels — categories, statuses, IDs. Use `text_general` for natural-language
+  fields where you want lowercasing, tokenization, and stopword removal.
+
+Note on schema migration:
+  Switching `genre` from string to text_general AFTER documents had already
+  been indexed produced this Lucene error on the next update:
+
+    cannot change field "genre" from index options=DOCS to inconsistent
+    index options=DOCS_AND_FREQS_AND_POSITIONS
+
+  In other words: declare the type before the first index run, or be
+  prepared to delete the collection and start over.

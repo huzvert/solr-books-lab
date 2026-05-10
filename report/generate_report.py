@@ -89,11 +89,18 @@ def main():
     # 2. Dataset description
     add_heading(doc, "2. Dataset Description")
     add_para(doc,
-        "I generated a synthetic books-catalog dataset of 600 records using a small "
-        "Python script (data/generate_books.py). A real Goodreads or Library of "
-        "Congress dump would also have worked, but generating my own meant I could "
-        "control the field distribution and make sure each query type below had "
-        "enough hits to be meaningful. Each record is a single book:")
+        "The dataset is the open Goodbooks-10K corpus "
+        "(github.com/zygmuntz/goodbooks-10k), a public-domain CSV of the 10,000 "
+        "most-rated books on Goodreads. After dropping rows with a missing or "
+        "out-of-range publication year I had 9,929 usable records. The script at "
+        "data/transform_goodbooks.py reshapes the raw columns into the project's "
+        "schema. The real fields (title, author, year, rating, language) are "
+        "kept verbatim. Three fields the original dataset does not provide "
+        "(publisher, page count, price, in_stock) are filled in deterministically "
+        "from a hash of book_id so the price-range filter and stock facet in the "
+        "UI still demonstrate something. This is documented honestly in the "
+        "transform script and in the README.")
+    add_para(doc, "Each record is a single book with these fields:")
     fields_table = [
         ("id", "string", "Unique book identifier (BK0001..BK0600)"),
         ("title", "text_general", "Book title (full-text indexed)"),
@@ -121,19 +128,33 @@ def main():
 
     add_para(doc, "")
     add_para(doc,
-        "Format is CSV (~80 KB). 15 genres, 15 publishers, publication years "
-        "between 1955 and 2025."
+        "Source: github.com/zygmuntz/goodbooks-10k (CC0). Format: CSV, 9,929 rows, "
+        "~2 MB after transformation. Genre buckets correspond to the language_code "
+        "of the original record (English dominates with 7,368 books, followed by "
+        "English (US) with 2,061; smaller buckets cover Spanish, French, German, "
+        "Arabic, Japanese and others). Publication years span 1500-2025."
     )
 
     # 3. Configuration details
     add_heading(doc, "3. Configuration Details")
     add_para(doc, "Software stack:", bold=True)
     add_para(doc,
-        "* Apache Solr 9.6.1 (standalone mode, default Jetty container, port 8983)\n"
+        "* Apache Solr 9.6.1 (SolrCloud mode, 2 nodes, embedded ZooKeeper)\n"
         "* OpenJDK 21\n"
         "* Python 3.13 with Flask 3.x and requests\n"
         "* Windows 11"
     )
+    add_para(doc, "Cluster topology:", bold=True)
+    add_para(doc,
+        "I started Solr with 'solr.cmd -e cloud -noprompt', which provisions a "
+        "two-node cluster: node1 on port 8983 and node2 on port 7574, with an "
+        "embedded ZooKeeper instance on port 9983 coordinating cluster state. "
+        "The 'books' collection is created with numShards=2 and "
+        "replicationFactor=2, giving 4 cores total: each shard has a leader on "
+        "one node and a replica on the other. With ~9,929 documents this puts "
+        "roughly 5,000 documents in each shard. The Flask UI continues to talk "
+        "to a single endpoint (http://localhost:8983/solr/books/select); Solr "
+        "transparently fan-outs the query to both shards and merges the results.")
     add_para(doc, "Solr core:", bold=True)
     add_para(doc,
         "I created the core with 'solr.cmd create -c books', which gives you the "
@@ -157,15 +178,17 @@ def main():
     add_heading(doc, "4. Implementation Steps")
     steps = [
         ("Install Solr", "Downloaded solr-9.6.1.tgz from archive.apache.org and extracted."),
-        ("Start the server", ".\\start-solr.ps1 (runs solr.cmd start -f)."),
-        ("Generate dataset", "python data/generate_books.py produces books.csv (600 rows)."),
-        ("Create core", "solr.cmd create -c books — provisions a fresh core with the default configset."),
+        ("Start a SolrCloud cluster", ".\\solr-9.6.1\\bin\\solr.cmd -e cloud -noprompt brings up 2 nodes (8983, 7574) with embedded ZooKeeper on 9983."),
+        ("Download dataset", "curl https://raw.githubusercontent.com/zygmuntz/goodbooks-10k/master/books.csv into data/goodbooks_raw.csv (10,000 rows)."),
+        ("Transform dataset", "python data/transform_goodbooks.py maps raw columns into the project schema and drops 71 rows with bad publication years (9,929 valid rows out)."),
+        ("Create sharded collection", "POST /solr/admin/collections?action=CREATE&name=books&numShards=2&replicationFactor=2&collection.configName=_default — gives 4 cores spread across the two nodes."),
         ("Define schema", "POST add-field JSON for the 10 domain fields to /solr/books/schema."),
-        ("Index data", "POST books.csv to /solr/books/update?commit=true with Content-Type application/csv."),
-        ("Verify", "GET /solr/books/select?q=*:*&rows=0 returns numFound=600."),
-        ("Run sample queries", "12 queries exercised in sample_queries.md — full-text, fq, facet, hl, sort, fuzzy, group."),
-        ("Build Flask UI", "app/app.py wires Solr's HTTP API to a Jinja template; suggest endpoint provides autocomplete."),
-        ("Test in browser", "Tested search bar, facets, year range filter, sort dropdown, pagination, highlighting."),
+        ("Index data", "POST books.csv to /solr/books/update?commit=true&header=true with Content-Type application/csv. Indexed in 4.7 seconds."),
+        ("Verify shard distribution", "Each shard ends up holding ~4,978 of the 9,929 docs. Hash-based routing on the id field gives a near-50/50 split."),
+        ("Run sample queries", "12 query types exercised in sample_queries.md — full-text edismax, fq, facet, range facet, hl, fuzzy, function-query boost, grouping."),
+        ("Field-types experiment", "Created a separate 'books_bad' collection with genre as text_general instead of string to demonstrate empirically why the choice matters (see Observations 6.5 below)."),
+        ("Build Flask UI", "app/app.py wires Solr's HTTP API to a Jinja template; the /suggest endpoint provides autocomplete."),
+        ("Test in browser", "Search, facets, year-range filter, sort dropdown, pagination, highlighting all verified manually with real queries (Harry Potter, quantum, etc.)."),
     ]
     for i, (title_, body) in enumerate(steps, 1):
         add_para(doc, f"{i}. {title_}", bold=True)
@@ -181,14 +204,18 @@ def main():
 
     # 5. Screenshots
     add_heading(doc, "5. Screenshots")
-    add_image_if_exists(doc, "01_solr_admin.png",  "Figure 1. Solr admin UI showing the 'books' core.")
-    add_image_if_exists(doc, "02_indexed_count.png", "Figure 2. q=*:* returns 600 indexed documents.")
-    add_image_if_exists(doc, "03_facet_query.png",   "Figure 3. Faceted search by genre and publisher.")
-    add_image_if_exists(doc, "04_highlight.png",     "Figure 4. Hit highlighting on the description field.")
-    add_image_if_exists(doc, "05_web_ui.png",        "Figure 5. Flask web UI with search, facets and sorting.")
-    add_image_if_exists(doc, "06_autocomplete.png",  "Figure 6. Autocomplete suggestions while typing.")
-    add_image_if_exists(doc, "07_facet_ui.png",      "Figure 7. Facet drilldown — Fantasy genre selected, sidebar updates with co-occurring publishers.")
-    add_image_if_exists(doc, "08_sort_ui.png",       "Figure 8. Sort by year descending, returning newest titles first.")
+    add_image_if_exists(doc, "01_solr_admin.png",  "Figure 1. Solr Admin UI dashboard showing the running SolrCloud instance.")
+    add_image_if_exists(doc, "09_solrcloud_topology.png", "Figure 2. SolrCloud Cloud > Nodes view: two nodes (ports 8983 and 7574), each hosting two replicas of the sharded 'books' collection.")
+    add_image_if_exists(doc, "10_schema_tab.png",  "Figure 3. Solr Admin > Schema tab for the 'genre' field on the books collection. Field-Type is StrField (string), Tokenized=NO. This is the production-correct setting.")
+    add_image_if_exists(doc, "11_query_tab.png",   "Figure 4. Solr Admin > Query tab — the in-browser query builder used for ad-hoc testing.")
+    add_image_if_exists(doc, "02_indexed_count.png", "Figure 5. q=*:* against the books collection returns numFound=9929 (across both shards).")
+    add_image_if_exists(doc, "03_facet_query.png",   "Figure 6. Faceted search by genre and publisher — distributed query merges counts from both shards.")
+    add_image_if_exists(doc, "04_highlight.png",     "Figure 7. Hit highlighting wraps matched terms with <mark> tags in the description field.")
+    add_image_if_exists(doc, "12_field_experiment.png", "Figure 8. Broken facet output from the books_bad collection (genre declared as text_general). 'Science Fiction' and 'Historical Fiction' have been split by the analyzer; the 'fiction' token now has count=4 because both source values contributed to it.")
+    add_image_if_exists(doc, "05_web_ui.png",        "Figure 9. Flask web UI: search for 'potter' returns the Harry Potter series with highlighted hits, sidebar facets, and metadata.")
+    add_image_if_exists(doc, "06_autocomplete.png",  "Figure 10. Search results for the query 'harry'.")
+    add_image_if_exists(doc, "07_facet_ui.png",      "Figure 11. Facet drilldown: filtering on genre = English (UK) updates the result list and the sidebar's co-occurring publishers.")
+    add_image_if_exists(doc, "08_sort_ui.png",       "Figure 12. Sort by year descending returns the newest titles first.")
 
     # 6. Observations
     add_heading(doc, "6. Observations and Analysis")
@@ -218,6 +245,38 @@ def main():
         "the HTML <mark> tag inside the highlighted fragment. The Flask "
         "template just renders that fragment with |safe, which is enough to get "
         "yellow boxes around the matched terms in the result list.")
+    add_para(doc, "Field-types experiment.", bold=True)
+    add_para(doc,
+        "To convince myself the schema choices in section 3 actually mattered, I "
+        "created a second collection 'books_bad' on a separate configset, "
+        "declared its 'genre' field as text_general instead of string, and "
+        "indexed six identical rows covering three multi-word genres (Science "
+        "Fiction x2, Historical Fiction x2, Crime Thriller x2).")
+    add_para(doc,
+        "books_bad facet output (Figure 8): "
+        "'fiction' -> 4, 'crime' -> 2, 'historical' -> 2, 'science' -> 2, "
+        "'thriller' -> 2.")
+    add_para(doc,
+        "The StandardTokenizer chained into text_general split each multi-word "
+        "value on whitespace and lowercased the tokens. 'Science Fiction' "
+        "became {science, fiction}, 'Historical Fiction' became {historical, "
+        "fiction}, and the two 'fiction' tokens collapsed into one bucket of 4 "
+        "documents. The genre information needed for the sidebar is gone.")
+    add_para(doc,
+        "books (production) facet output for comparison: "
+        "'English' -> 7368, 'English (US)' -> 2061, 'English (UK)' -> 256, ...")
+    add_para(doc,
+        "string fields skip the analyzer chain, so each value is stored "
+        "byte-for-byte. The buckets stay intact and the UI sidebar gets the "
+        "counts it needs.")
+    add_para(doc,
+        "Side-finding while running this experiment: replacing genre's type on "
+        "an already-indexed collection produced this Lucene error on the next "
+        "write — 'cannot change field genre from index options=DOCS to "
+        "inconsistent index options=DOCS_AND_FREQS_AND_POSITIONS'. So the "
+        "rule is firmer than I expected: declare the type before the first "
+        "index run, or be prepared to delete the collection and start over.")
+
     add_para(doc, "What I would change.", bold=True)
     add_para(doc,
         "If I were doing this on a real catalog I would add a copyField from "
@@ -251,11 +310,13 @@ def main():
     # 8. Conclusion
     add_heading(doc, "8. Conclusion")
     add_para(doc,
-        "By the end I had 600 records indexed with an explicit schema, twelve "
-        "query patterns working, and a Flask UI for search, facets, range "
-        "filters, sort, pagination, highlighting and autocomplete. Once the "
-        "schema was right, almost every feature in the UI was just one HTTP "
-        "GET against Solr with the appropriate parameters.")
+        "By the end I had a 2-node SolrCloud cluster running 9,929 real "
+        "Goodreads records sharded across two cores, twelve query patterns "
+        "working against the distributed collection, an empirical demonstration "
+        "of why genre needs to be a string field rather than text_general, and "
+        "a Flask UI exposing search, facets, range filters, sort, pagination, "
+        "highlighting and autocomplete on top. Once the schema was right, "
+        "almost every feature in the UI was just one HTTP GET against Solr.")
     add_para(doc,
         "Two things bit me and are worth remembering for next time. First: "
         "declare numeric and string field types BEFORE the first index run, "

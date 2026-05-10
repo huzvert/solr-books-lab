@@ -152,18 +152,46 @@ def api_search():
 
 @app.route("/suggest")
 def suggest():
+    """Autocomplete via Solr's SuggestComponent (AnalyzingInfixLookupFactory)
+    over the title field. Falls back to a wildcard query if the suggester
+    handler isn't configured (older deployments)."""
     q = request.args.get("q", "").strip()
     if not q:
         return jsonify([])
-    url = f"{SOLR_URL}/{CORE}/select"
-    params = {
-        "q": f"title:{q}* OR author:{q}*",
-        "fl": "title,author",
-        "rows": 8,
-        "wt": "json",
-    }
+    # Primary: SuggestComponent
     try:
-        r = requests.get(url, params=params, timeout=5)
+        r = requests.get(
+            f"{SOLR_URL}/{CORE}/suggest_handler",
+            params={"suggest.q": q, "wt": "json", "suggest.count": 8},
+            timeout=5,
+        )
+        r.raise_for_status()
+        sug = r.json().get("suggest", {}).get("titleSuggester", {})
+        bucket = next(iter(sug.values()), {})
+        items = bucket.get("suggestions", [])
+        # Strip the <b>...</b> wrapping the matched substring
+        out, seen = [], set()
+        for s in items:
+            term = s.get("term", "").replace("<b>", "").replace("</b>", "")
+            if term and term not in seen:
+                seen.add(term)
+                out.append(term)
+        if out:
+            return jsonify(out)
+    except Exception:
+        pass
+    # Fallback: wildcard query
+    try:
+        r = requests.get(
+            f"{SOLR_URL}/{CORE}/select",
+            params={
+                "q": f"title:{q}* OR author:{q}*",
+                "fl": "title,author",
+                "rows": 8,
+                "wt": "json",
+            },
+            timeout=5,
+        )
         r.raise_for_status()
         docs = r.json().get("response", {}).get("docs", [])
         seen, out = set(), []

@@ -217,6 +217,9 @@ def main():
     add_image_if_exists(doc, "07_facet_ui.png",      "Figure 11. Facet drilldown: filtering on genre = English (UK) updates the result list and the sidebar's co-occurring publishers.")
     add_image_if_exists(doc, "08_sort_ui.png",       "Figure 12. Sort by year descending returns the newest titles first.")
     add_image_if_exists(doc, "14_live_search.png",   "Figure 13. Live search-as-you-type — the result list re-renders on every keystroke via fetch to /api/search; the URL bar updates with history.replaceState so any state remains shareable.")
+    add_image_if_exists(doc, "16_failover_after.png", "Figure 14. Cluster topology after stopping node2 (port 7574). Only one node remains live; the books collection is still fully available because each shard has a replica on the surviving node.")
+    add_image_if_exists(doc, "17_failover_query.png", "Figure 15. Web UI search for 'potter' continues to return all 29 results while node2 is down — confirming fault-tolerant distributed search.")
+    add_image_if_exists(doc, "19_suggester.png",      "Figure 16. SuggestComponent response for suggest.q=harry — returns full title strings with the matched substring wrapped in <b>...</b> via AnalyzingInfixLookupFactory.")
 
     # 6. Observations
     add_heading(doc, "6. Observations and Analysis")
@@ -278,6 +281,110 @@ def main():
         "rule is firmer than I expected: declare the type before the first "
         "index run, or be prepared to delete the collection and start over.")
 
+    add_para(doc, "Fault tolerance (failover demo).", bold=True)
+    add_para(doc,
+        "I tested the cluster's tolerance to a node failure. Starting from "
+        "both nodes up and 9,929 documents indexed, I stopped node2 with "
+        "'solr.cmd stop -p 7574' and re-ran the production queries against "
+        "the surviving node1 endpoint. The cluster status reported live_nodes "
+        "= ['localhost:8983_solr'] (only one node), but queries continued to "
+        "return correct results: q=*:* still numFound=9929, edismax q=potter "
+        "still numFound=29 with the Harry Potter series at the top. This works "
+        "because each shard has replicationFactor=2, so the data is mirrored "
+        "across both nodes; node1 already holds a full replica of every "
+        "shard. After verification I restarted node2 and the cluster returned "
+        "to its original 2-node state with no manual intervention. See "
+        "Figures 14, 15 in the screenshots section.")
+
+    add_para(doc, "Performance methodology and shard-overhead measurement.", bold=True)
+    add_para(doc,
+        "I wrote benchmark.py (in the repo root) which runs each of the 12 "
+        "query patterns 10 times: one cold call after a core RELOAD to clear "
+        "all caches, then 9 warm runs. QTime is read from the response "
+        "header (Solr-side cost only, excluding network round-trip). The "
+        "same 12 queries were run in two configurations against the same "
+        "9,929-document collection: distributed (Solr fan-outs to both "
+        "shards and merges) and single-shard (distrib=false, hits one "
+        "shard's ~5,000 docs). Mean and p95 QTime over the 9 warm runs are "
+        "reported.")
+    add_para(doc, "Selected results (mean QTime over 9 warm runs, in ms):")
+    table = doc.add_table(rows=1, cols=4)
+    table.style = "Light List Accent 1"
+    hdr = table.rows[0].cells
+    hdr[0].text = "Query"
+    hdr[1].text = "distributed (2 shards)"
+    hdr[2].text = "single-shard"
+    hdr[3].text = "ratio"
+    rows = [
+        ("Q1 match-all",       "11.1", "0.4",  "25x"),
+        ("Q2 edismax full-text","24.9", "2.6",  "10x"),
+        ("Q3 fq + price range","19.9", "0.7",  "30x"),
+        ("Q4 multi-field facets","15.0","4.7",  "3x"),
+        ("Q5 sort year+rating","37.0", "1.1",  "33x"),
+        ("Q6 highlighting",    "29.6", "9.4",  "3x"),
+        ("Q9 fuzzy",           "22.7", "1.6",  "15x"),
+        ("Q11 paging start=100","28.4","0.8", "37x"),
+    ]
+    for q, d_, s_, r_ in rows:
+        rc = table.add_row().cells
+        rc[0].text = q
+        rc[1].text = d_
+        rc[2].text = s_
+        rc[3].text = r_
+    add_para(doc, "Interpretation.", bold=True)
+    add_para(doc,
+        "The distributed query is consistently slower than the single-shard "
+        "equivalent on this dataset, by ratios of 3x to 37x. At 9,929 "
+        "documents the per-shard work is so cheap (often sub-millisecond) "
+        "that the coordinator overhead of a fan-out + merge dominates. "
+        "Sharding pays off when the per-shard work itself is expensive "
+        "enough to swamp the coordinator cost; that crossover usually sits "
+        "in the millions-of-documents range. For this lab the cluster was "
+        "the right thing to demonstrate the topology, but it would not be "
+        "the right architecture for a production catalog of this size. "
+        "Full per-query numbers including p95 are in report/benchmark_results.txt.")
+
+    add_para(doc, "Suggester component (autocomplete).", bold=True)
+    add_para(doc,
+        "After the empirical benchmark I replaced the original wildcard-"
+        "based autocomplete with Solr's proper SuggestComponent. I posted "
+        "this configuration to /solr/books/config:")
+    add_code(doc,
+        '{"add-searchcomponent":{\n'
+        '   "name":"suggest_component",\n'
+        '   "class":"solr.SuggestComponent",\n'
+        '   "suggester":{\n'
+        '     "name":"titleSuggester",\n'
+        '     "lookupImpl":"AnalyzingInfixLookupFactory",\n'
+        '     "dictionaryImpl":"DocumentDictionaryFactory",\n'
+        '     "field":"title",\n'
+        '     "suggestAnalyzerFieldType":"text_general",\n'
+        '     "buildOnCommit":"true"\n'
+        '   }},\n'
+        ' "add-requesthandler":{\n'
+        '   "name":"/suggest_handler",\n'
+        '   "class":"solr.SearchHandler",\n'
+        '   "defaults":{"suggest":"true","suggest.count":"10",\n'
+        '              "suggest.dictionary":"titleSuggester"},\n'
+        '   "components":["suggest_component"]}\n'
+        '}')
+    add_para(doc,
+        "AnalyzingInfixLookupFactory does prefix AND infix matching against "
+        "the analyzed title field, so 'harry' matches 'The Lincoln Lawyer "
+        "(Mickey Haller, #1; Harry Bosch Universe, #16)' as well as 'Harry "
+        "Potter and the Sorcerer's Stone'. The Flask /suggest endpoint now "
+        "calls the Suggester first and falls back to the wildcard query if "
+        "the handler isn't configured (older deployments). See Figure 16.")
+    add_para(doc, "Side-finding while configuring this:", bold=True)
+    add_para(doc,
+        "The Solr config API is strict about JSON value types. Sending "
+        "buildOnCommit: true (boolean) returns 500 with a "
+        "'Boolean cannot be cast to String' ClassCastException in "
+        "SuggestComponent.inform(). Quoting the value as \"true\" works. "
+        "This is documented behavior in older Solr versions (the schema and "
+        "config APIs accept JSON but coerce many fields back through string "
+        "parsers internally).")
+
     add_para(doc, "Live search-as-you-type.", bold=True)
     add_para(doc,
         "The Flask UI exposes a JSON endpoint at /api/search that returns the "
@@ -323,11 +430,16 @@ def main():
     add_para(doc,
         "By the end I had a 2-node SolrCloud cluster running 9,929 real "
         "Goodreads records sharded across two cores, twelve query patterns "
-        "working against the distributed collection, an empirical demonstration "
-        "of why genre needs to be a string field rather than text_general, and "
-        "a Flask UI exposing search, facets, range filters, sort, pagination, "
-        "highlighting and autocomplete on top. Once the schema was right, "
-        "almost every feature in the UI was just one HTTP GET against Solr.")
+        "working against the distributed collection, an empirical "
+        "demonstration of why genre needs to be a string field, a measured "
+        "comparison of distributed vs single-shard latency (the distributed "
+        "version is 3-37x slower at this scale because coordinator overhead "
+        "dominates), a fault-tolerance test (node2 killed, queries still "
+        "served from node1's replicas), the SuggestComponent wired in for "
+        "real autocomplete, and a Flask UI on top exposing search, facets, "
+        "range filters, sort, pagination, highlighting, autocomplete, and "
+        "live search-as-you-type. Once the schema was right, almost every "
+        "feature in the UI was just one HTTP GET against Solr.")
     add_para(doc,
         "Two things bit me and are worth remembering for next time. First: "
         "declare numeric and string field types BEFORE the first index run, "

@@ -18,23 +18,23 @@ import time
 import urllib.parse
 import urllib.request
 
-BASE = "http://localhost:8983/solr/books/select"
+BASE = "http://localhost:8983/solr/products/select"
 
 QUERIES = [
     ("Q1 match-all", {"q": "*:*", "rows": 0}),
-    ("Q2 edismax FT", {"q": "potter", "defType": "edismax", "qf": "title^3 author^2 description", "rows": 5}),
-    ("Q3 fq+range", {"q": "*:*", "fq": ['genre:"English"', "price:[10 TO 30]"], "rows": 5}),
-    ("Q4 facets", {"q": "*:*", "facet": "true", "facet.field": ["genre", "publisher"], "facet.mincount": 1, "rows": 0}),
-    ("Q5 sort", {"q": "*:*", "sort": "year desc, rating desc", "rows": 5}),
-    ("Q6 highlight", {"q": "description:freedom", "hl": "true", "hl.fl": "description", "rows": 5}),
-    ("Q7 range facet", {"q": "*:*", "facet": "true", "facet.range": "year",
-                         "facet.range.start": 1500, "facet.range.end": 2030,
+    ("Q2 edismax FT", {"q": "running", "defType": "edismax", "qf": "title^3 brand_text^2 description", "rows": 5}),
+    ("Q3 fq+range", {"q": "*:*", "fq": ['category:"Electronics"', "price:[10 TO 50]"], "rows": 5}),
+    ("Q4 facets", {"q": "*:*", "facet": "true", "facet.field": ["category", "brand"], "facet.mincount": 1, "rows": 0}),
+    ("Q5 sort", {"q": "*:*", "sort": "rating desc, num_reviews desc", "rows": 5}),
+    ("Q6 highlight", {"q": "description:wireless", "hl": "true", "hl.fl": "description", "rows": 5}),
+    ("Q7 range facet", {"q": "*:*", "facet": "true", "facet.range": "price",
+                         "facet.range.start": 0, "facet.range.end": 500,
                          "facet.range.gap": 50, "rows": 0}),
-    ("Q8 phrase+bool", {"q": 'title:"Harry Potter" AND in_stock:true'}),
-    ("Q9 fuzzy", {"q": "author:Rowling~2", "rows": 5}),
-    ("Q10 boost", {"q": "{!boost b=rating}genre:English", "defType": "lucene", "rows": 5}),
+    ("Q8 phrase+bool", {"q": 'title:"running shoes" AND in_stock:true'}),
+    ("Q9 fuzzy", {"q": "brand_text:Adidaz~2", "rows": 5}),
+    ("Q10 boost", {"q": "{!boost b=rating}category:Electronics", "defType": "lucene", "rows": 5}),
     ("Q11 paging", {"q": "*:*", "start": 100, "rows": 10}),
-    ("Q12 group", {"q": "*:*", "group": "true", "group.field": "genre", "group.limit": 2, "rows": 0}),
+    ("Q12 group", {"q": "*:*", "group": "true", "group.field": "category", "group.limit": 2, "rows": 0}),
 ]
 
 
@@ -48,8 +48,26 @@ def call(params):
 
 def clear_cache():
     """Reload each replica core, which discards all caches."""
-    for core in ["books_shard1_replica_n6", "books_shard1_replica_n4",
-                 "books_shard2_replica_n2", "books_shard2_replica_n8"]:
+    # Best-effort: list cores from each node and reload them all
+    import re as _re
+    for port in (8983, 7574):
+        try:
+            data = urllib.request.urlopen(
+                f"http://localhost:{port}/solr/admin/cores?action=STATUS&wt=json",
+                timeout=5,
+            ).read().decode()
+            for core in _re.findall(r'"name":"(products[^"]*)"', data):
+                try:
+                    urllib.request.urlopen(
+                        f"http://localhost:{port}/solr/admin/cores?action=RELOAD&core={core}",
+                        timeout=10,
+                    ).read()
+                except Exception:
+                    pass
+        except Exception:
+            pass
+    # Pin loop variable to avoid shadowing the kept-out 'core' var
+    for core in []:
         try:
             urllib.request.urlopen(
                 f"http://localhost:8983/solr/admin/cores?action=RELOAD&core={core}",

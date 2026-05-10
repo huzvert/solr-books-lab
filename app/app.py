@@ -15,7 +15,7 @@ import requests
 from flask import Flask, render_template, request, jsonify
 
 SOLR_URL = os.environ.get("SOLR_URL", "http://localhost:8983/solr")
-CORE = os.environ.get("SOLR_CORE", "books")
+CORE = os.environ.get("SOLR_CORE", "products")
 PAGE_SIZE = 10
 
 app = Flask(__name__)
@@ -25,17 +25,17 @@ def solr_search(q, filters, sort, start):
     params = [
         ("q", q or "*:*"),
         ("defType", "edismax"),
-        ("qf", "title^3 author^2 description genre publisher"),
+        ("qf", "title^3 brand_text^2 description category subcategory"),
         ("rows", PAGE_SIZE),
         ("start", start),
         ("wt", "json"),
         ("hl", "true"),
-        ("hl.fl", "title,description,author"),
+        ("hl.fl", "title,description"),
         ("hl.simple.pre", "<mark>"),
         ("hl.simple.post", "</mark>"),
         ("facet", "true"),
-        ("facet.field", "genre"),
-        ("facet.field", "publisher"),
+        ("facet.field", "category"),
+        ("facet.field", "brand"),
         ("facet.field", "in_stock"),
         ("facet.mincount", 1),
     ]
@@ -55,20 +55,20 @@ def home():
     sort = request.args.get("sort", "")
     page = max(1, int(request.args.get("page", 1)))
     selected = {
-        "genre": request.args.getlist("genre"),
-        "publisher": request.args.getlist("publisher"),
+        "category": request.args.getlist("category"),
+        "brand": request.args.getlist("brand"),
         "in_stock": request.args.getlist("in_stock"),
     }
     filters = []
     for field, vals in selected.items():
         for v in vals:
             filters.append(f'{field}:"{v}"')
-    year_from = request.args.get("year_from", "").strip()
-    year_to = request.args.get("year_to", "").strip()
-    if year_from or year_to:
-        lo = year_from or "*"
-        hi = year_to or "*"
-        filters.append(f"year:[{lo} TO {hi}]")
+    price_from = request.args.get("price_from", "").strip()
+    price_to = request.args.get("price_to", "").strip()
+    if price_from or price_to:
+        lo = price_from or "*"
+        hi = price_to or "*"
+        filters.append(f"price:[{lo} TO {hi}]")
 
     start = (page - 1) * PAGE_SIZE
     error = None
@@ -102,7 +102,7 @@ def home():
         q=q, sort=sort, page=page, pages=pages,
         docs=docs, hl=hl, facets=facets,
         num_found=num_found, qtime=qtime,
-        selected=selected, year_from=year_from, year_to=year_to,
+        selected=selected, price_from=price_from, price_to=price_to,
         error=error, base_qs=base_qs,
     )
 
@@ -114,18 +114,18 @@ def api_search():
     sort = request.args.get("sort", "")
     page = max(1, int(request.args.get("page", 1)))
     selected = {
-        "genre": request.args.getlist("genre"),
-        "publisher": request.args.getlist("publisher"),
+        "category": request.args.getlist("category"),
+        "brand": request.args.getlist("brand"),
         "in_stock": request.args.getlist("in_stock"),
     }
     filters = []
     for field, vals in selected.items():
         for v in vals:
             filters.append(f'{field}:"{v}"')
-    year_from = request.args.get("year_from", "").strip()
-    year_to = request.args.get("year_to", "").strip()
-    if year_from or year_to:
-        filters.append(f"year:[{year_from or '*'} TO {year_to or '*'}]")
+    price_from = request.args.get("price_from", "").strip()
+    price_to = request.args.get("price_to", "").strip()
+    if price_from or price_to:
+        filters.append(f"price:[{price_from or '*'} TO {price_to or '*'}]")
     start = (page - 1) * PAGE_SIZE
     try:
         data = solr_search(q, filters, sort, start)

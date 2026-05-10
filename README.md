@@ -1,11 +1,12 @@
-# Apache Solr — Books Search Lab (CS-347 Lab 13)
+# Apache Solr — Product Search Lab (CS-347 Lab 13)
 
-End-to-end Apache Solr lab: a 2-node sharded SolrCloud cluster indexing 9,929 real
-Goodreads books, with a Flask web UI on top.
+End-to-end Apache Solr lab: a 2-node sharded SolrCloud cluster indexing 996 real
+Amazon products, with a Flask web UI on top. Every searchable field comes from
+the source dataset — no synthetic columns.
 
 ## Stack
 - Apache Solr 9.6.1 in **SolrCloud** mode (2 nodes on 8983/7574, embedded ZooKeeper on 9983)
-- 9,929-record real dataset from the public Goodbooks-10K corpus
+- 996-record real Amazon-products dataset (Bright Data public sample)
 - Python 3.13 + Flask + requests
 - Vanilla HTML/CSS/JS frontend (no build step)
 
@@ -46,16 +47,16 @@ with embedded ZooKeeper on 9983. Confirm at http://localhost:8983/solr/
 
 ### 3. Get the dataset
 ```powershell
-curl -L -o data\goodbooks_raw.csv https://raw.githubusercontent.com/zygmuntz/goodbooks-10k/master/books.csv
-python data\transform_goodbooks.py
+curl -L -o data\amazon_raw.csv https://raw.githubusercontent.com/luminati-io/Amazon-dataset-samples/main/amazon-products.csv
+python data\transform_amazon.py
 ```
-This produces `data\books.csv` with 9,929 records.
+This produces `data\products.csv` with 996 records.
 
 ### 4. Create the sharded collection, define schema, index data
 ```powershell
 .\setup.ps1
 ```
-You should see `total docs across both shards: 9929`.
+You should see `total docs across both shards: 996`.
 
 ### 4. Run the web app
 ```powershell

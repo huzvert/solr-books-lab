@@ -1,11 +1,11 @@
-# End-to-end setup: create sharded 'books' collection, define schema, index data.
+# End-to-end setup: create sharded 'products' collection, define schema, index data.
 # Prereq: SolrCloud running on localhost:8983 (start with .\start-solr.ps1).
-# Optional: Real dataset in data\books.csv. If missing, run:
-#   python data\transform_goodbooks.py   (after downloading goodbooks_raw.csv)
+# Optional: Real dataset in data\products.csv. If missing, run:
+#   python data\transform_amazon.py   (after downloading amazon_raw.csv)
 
 $ErrorActionPreference = 'Continue'
 $Solr = 'http://localhost:8983/solr'
-$Col  = 'books'
+$Col  = 'products'
 $DataDir = Join-Path $PSScriptRoot 'data'
 
 # 1. Create the collection (2 shards, 2 replicas) — idempotent
@@ -22,11 +22,12 @@ Start-Sleep -Seconds 3
 Write-Host "[2/4] Defining schema fields..." -ForegroundColor Cyan
 $fields = @(
   @{name='title';       type='text_general'; stored=$true; indexed=$true},
-  @{name='author';      type='text_general'; stored=$true; indexed=$true},
-  @{name='genre';       type='string';       stored=$true; indexed=$true},
-  @{name='publisher';   type='string';       stored=$true; indexed=$true},
+  @{name='brand';       type='string';       stored=$true; indexed=$true},
+  @{name='brand_text';  type='text_general'; stored=$false; indexed=$true},
+  @{name='category';    type='string';       stored=$true; indexed=$true},
+  @{name='subcategory'; type='string';       stored=$true; indexed=$true},
   @{name='year';        type='pint';         stored=$true; indexed=$true},
-  @{name='pages';       type='pint';         stored=$true; indexed=$true},
+  @{name='num_reviews'; type='pint';         stored=$true; indexed=$true},
   @{name='price';       type='pfloat';       stored=$true; indexed=$true},
   @{name='rating';      type='pfloat';       stored=$true; indexed=$true},
   @{name='in_stock';    type='boolean';      stored=$true; indexed=$true},
@@ -43,8 +44,8 @@ foreach ($f in $fields) {
 }
 
 # 3. Index the CSV
-$csv = Join-Path $DataDir 'books.csv'
-if (-not (Test-Path $csv)) { throw "data\books.csv not found. Run: python data\transform_goodbooks.py" }
+$csv = Join-Path $DataDir 'products.csv'
+if (-not (Test-Path $csv)) { throw "data\products.csv not found. Run: python data\transform_amazon.py" }
 Write-Host "[3/4] Indexing $csv..." -ForegroundColor Cyan
 $t0 = Get-Date
 Invoke-RestMethod -Method Post -Uri "$Solr/$Col/update?commit=true&header=true" `
